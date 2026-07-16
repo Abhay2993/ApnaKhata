@@ -92,6 +92,29 @@ Algorithm (executed inside a single `SERIALIZABLE` transaction — see
    templated SMS/WhatsApp to payer and payee (idempotency key = payment UUID, so
    retries never double-send).
 
+**Ledger extensions** (migration [`001_payments_ledger.sql`](../database/migrations/001_payments_ledger.sql),
+services under `backend/src/services/`) all build on `apply_payment_fifo()`:
+
+- **UPI collection + auto-reconciliation** — `UpiCollectionService` mints a dynamic
+  `upi://pay?…&tr=<ref>` deep link per invoice; the inbound UTR webhook calls
+  `reconcile_upi_collection()`, which books the payment and runs FIFO in one
+  transaction. Idempotent on the transaction reference, so a replayed webhook is a
+  no-op returning the original payment.
+- **Automated reminders** — `PaymentReminderService` reads `invoices_due_for_reminder()`
+  (per-invoice aging via `v_invoice_aging`), escalates by bucket per the distributor's
+  `reminder_policies`, and throttles by cadence so concurrent runs never double-send.
+- **EMI / partial-payment plans** — `PaymentPlanService` restructures an invoice's
+  outstanding balance into a `payment_plans` + `payment_plan_installments` schedule;
+  `record_plan_installment_payment()` books each installment against the parent invoice.
+- **Interest / late-fee accrual** — `InterestAccrualService` applies per-distributor
+  `distributor_credit_terms` (grace period + daily rate + optional cap); the daily
+  `accrue_interest()` job records `interest_accruals` separately from principal (one row
+  per invoice per day, idempotent), surfaced via `v_invoice_balance_with_interest`.
+- **Dispute & credit-note workflow** — `DisputeService` drives `invoice_disputes` from
+  raise → review → resolve; upholding calls `resolve_dispute_with_credit_note()`, which
+  issues a `CREDIT_NOTE` ledger row (parties reversed, fully applied) and reduces the
+  disputed invoice atomically. Accrual pauses while an invoice is flagged.
+
 ### 2.2 Billing System & POS Webhook Gateway
 
 **Thermal printing:** the app renders invoices to ESC/POS byte streams
