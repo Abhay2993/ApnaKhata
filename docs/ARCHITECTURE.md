@@ -1,4 +1,4 @@
-# Vyaapaar-Core — Technical Specification & System Architecture
+# ApnaKhata — Technical Specification & System Architecture
 
 **Version:** 1.0 · **Status:** Blueprint · **Audience:** Engineering, Product, Bank Integration Partners
 
@@ -30,7 +30,7 @@ flowchart LR
         BANK[Bank Portals<br/>SBI · ICICI · HDFC]
     end
 
-    subgraph Core["Vyaapaar-Core Cloud"]
+    subgraph Core["ApnaKhata Cloud"]
         GW[API Gateway<br/>NestJS · REST + WebSocket]
         SETTLE[Settlement Engine<br/>FIFO Aging Reconciliation]
         FC[Forecasting Service<br/>FastAPI + Prophet]
@@ -138,7 +138,7 @@ Implemented in [`services/forecasting/forecast.py`](../services/forecasting/fore
 Implemented in [`backend/src/services/CreditScoreEvaluator.ts`](../backend/src/services/CreditScoreEvaluator.ts).
 
 Score range **300–900**, four weighted pillars computed strictly from observed ledger
-behavior (non-custodial — Vyaapaar never touches funds):
+behavior (non-custodial — ApnaKhata never touches funds):
 
 | Pillar | Weight | Signal |
 | --- | --- | --- |
@@ -149,7 +149,7 @@ behavior (non-custodial — Vyaapaar never touches funds):
 
 Tiers: **PRIME ≥ 740**, **SUBPRIME 580–739**, **HIGH_RISK < 580**.
 
-**Vyaapaar Credit Risk Passport (PDF):**
+**ApnaKhata Credit Risk Passport (PDF):**
 
 1. Credit engine emits a canonical JSON report (score, pillar sub-scores, 12-month
    ledger aggregates, data-coverage disclosure).
@@ -157,7 +157,7 @@ Tiers: **PRIME ≥ 740**, **SUBPRIME 580–739**, **HIGH_RISK < 580**.
    platform's **Ed25519** key; signature + key ID are embedded in the PDF (visible
    block + XMP metadata) and as a QR verification link.
 3. Banks verify via `GET /v1/credit-passport/{passportId}/verify` (returns the
-   canonical JSON, signature, and public key) — or fully offline against Vyaapaar's
+   canonical JSON, signature, and public key) — or fully offline against ApnaKhata's
    published public key. Any PDF tampering breaks the hash; any JSON tampering breaks
    the signature.
 4. Every passport issuance is recorded in an append-only, hash-chained audit table so

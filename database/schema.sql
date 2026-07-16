@@ -1,5 +1,5 @@
 -- ============================================================================
--- Vyaapaar-Core — PostgreSQL DDL
+-- ApnaKhata — PostgreSQL DDL
 -- Target: PostgreSQL 16 (+ TimescaleDB extension for stock_movements)
 --
 -- Conventions:

@@ -1,4 +1,4 @@
-# Vyaapaar-Core
+# ApnaKhata
 
 A premium B2B ledger, billing, and intelligent inventory ecosystem for the Indian MSME
 supply chain — connecting **Distributors** (wholesalers) and **Shop Owners** (kirana /
@@ -24,7 +24,7 @@ retailers) on a single, bank-grade financial rail.
 3. **ML stock forecasting** — Prophet-based 90-day rolling demand model tuned for
    Indian retail seasonality (Diwali, Holi, wedding seasons).
 4. **Bank-ready credit evaluation** — a transparent 300–900 score computed from actual
-   ledger behavior, exportable as a cryptographically signed "Vyaapaar Credit Risk
+   ledger behavior, exportable as a cryptographically signed "ApnaKhata Credit Risk
    Passport" PDF for lender API integration.
 
 See `docs/ARCHITECTURE.md` for the complete blueprint.

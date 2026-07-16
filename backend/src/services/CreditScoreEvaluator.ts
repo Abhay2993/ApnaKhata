@@ -1,5 +1,5 @@
 /**
- * Vyaapaar-Core — Credit Score Evaluator
+ * ApnaKhata — Credit Score Evaluator
  * --------------------------------------
  * Computes a bank-ready credit score (300–900) for a user from observed
  * ledger behaviour, persists it to `credit_score_metrics`, and returns the

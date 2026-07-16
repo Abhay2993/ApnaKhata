@@ -1,5 +1,5 @@
 /**
- * Vyaapaar-Core — Dashboard
+ * ApnaKhata — Dashboard
  * -------------------------
  * Private-banking aesthetic: obsidian ground, charcoal surfaces, regal gold
  * accents, alabaster type. No neon, no clutter.
@@ -210,7 +210,7 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number }> =
 const CreditScoreCard: React.FC<{ data: CreditSummary }> = ({ data }) => (
   <View className="mx-5 mt-6 rounded-2xl border border-[#C5A05955] bg-[#1F2833]/80 p-6">
     <View className="flex-row items-center justify-between">
-      <Text className="text-xs uppercase tracking-[3px] text-[#C0C0C0]">Vyaapaar Credit Passport</Text>
+      <Text className="text-xs uppercase tracking-[3px] text-[#C0C0C0]">ApnaKhata Credit Passport</Text>
       <View className="rounded-full border border-[#C5A05966] px-3 py-1">
         <Text className="text-[11px] font-semibold tracking-widest text-[#D4AF37]">
           {tierLabel[data.tier].toUpperCase()}
@@ -361,7 +361,7 @@ const DashboardScreen: React.FC = () => {
           <>
             <View className="mx-5 mt-4 flex-row items-baseline justify-between">
               <Text className="text-2xl text-[#F5F5F7]" style={{ fontFamily: 'PlayfairDisplay-SemiBold' }}>
-                Vyaapaar
+                ApnaKhata
               </Text>
               <Text className="text-xs tracking-wider text-[#C0C0C0]">Gupta General Store</Text>
             </View>

@@ -1,5 +1,5 @@
 """
-Vyaapaar-Core — Stock Forecasting Service
+ApnaKhata — Stock Forecasting Service
 =========================================
 
 FastAPI microservice that turns a retailer's daily sales history into:
@@ -35,7 +35,7 @@ try:
 except ImportError:  # pragma: no cover - degraded mode for slim deployments
     PROPHET_AVAILABLE = False
 
-logger = logging.getLogger("vyaapaar.forecast")
+logger = logging.getLogger("apnakhata.forecast")
 
 ROLLING_WINDOW_DAYS = 90        # modelling window mandated by product spec
 FORECAST_HORIZON_DAYS = 45      # how far ahead we project
@@ -208,7 +208,7 @@ def _stockout_date(fcst: pd.DataFrame, current_stock: float) -> Optional[date]:
 # FastAPI app
 # ---------------------------------------------------------------------------
 app = FastAPI(
-    title="Vyaapaar-Core Forecasting Service",
+    title="ApnaKhata Forecasting Service",
     version="1.0.0",
     description="Prophet-based stock depletion forecasting for Indian retail.",
 )
