@@ -12,6 +12,7 @@
 | --- | --- | --- |
 | Mobile client | React Native + TypeScript, NativeWind (Tailwind CSS) | Single codebase for Android-first Indian MSME market; typed UI contracts. |
 | API backend | Express (TypeScript) on Node.js | Shipped in `backend/src/server.ts` + `backend/src/http/`: every service exposed under `/v1` behind API-key + identity middleware (JWT slot marked in `middleware.ts`). Dependency-light; a NestJS migration path stays open if module DI is needed later. |
+| Batch worker | Node.js (`backend/src/worker.ts` + `jobs/`) | Separate process running the daily jobs — interest accrual (00:30), expiry write-off (01:00), nightly credit refresh (02:00), payment reminders (10:00) — on a dependency-free chained-`setTimeout` scheduler. Every job is idempotent per day, so missed/duplicate runs are safe. |
 | Forecasting service | FastAPI (Python) + Prophet | Python ML ecosystem; Prophet handles holiday/seasonality regressors natively. |
 | Primary database | PostgreSQL 16 | ACID financial ledgers, row-level locking for settlement, mature indexing. |
 | Time-series analytics | TimescaleDB (Postgres extension) | Stock-level movements as hypertables; feeds the ML window queries without a second datastore. |
