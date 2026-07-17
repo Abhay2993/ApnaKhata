@@ -117,9 +117,30 @@ services under `backend/src/services/`) all build on `apply_payment_fifo()`:
 
 ### 2.2 Billing System & POS Webhook Gateway
 
-**Thermal printing:** the app renders invoices to ESC/POS byte streams
-(`react-native-bluetooth-escpos-printer`) — 58 mm/80 mm templates, GST-compliant fields,
-UPI QR footer.
+**GST invoicing & compliance** (migration
+[`004_billing_compliance.sql`](../database/migrations/004_billing_compliance.sql)):
+
+- **GST-compliant invoices** — [`GstInvoiceService`](../backend/src/services/GstInvoiceService.ts)
+  writes a ledger header plus HSN-coded `invoice_line_items` with the correct tax split:
+  supplier state == place of supply → intra-state (CGST + SGST), otherwise inter-state
+  (IGST), enforced by a DB CHECK so the two can never coexist on a line. Invoices are
+  ordinary ledger rows, so they flow through FIFO settlement and credit scoring unchanged.
+- **Filing-ready GSTR exports** — `gstr1Export()` returns GSTN-schema JSON (B2B grouped
+  by counterparty GSTIN with rate-wise items, B2CS retail aggregate, and the table-12 HSN
+  summary) off the `v_gstr1_b2b` / `v_gstr1_hsn` views; `gstr3bSummary()` gives the 3.1(a)
+  outward-supply totals.
+- **E-invoicing / IRN** — [`EInvoiceService`](../backend/src/services/EInvoiceService.ts)
+  builds the INV-01 payload and registers it through a pluggable
+  [`IrpGateway`](../backend/src/irp/IrpGateway.ts) (the sandbox mirrors the portal's
+  real IRN derivation: SHA-256 over GSTIN + FY + doc-type + doc-no). Idempotent per
+  invoice, turnover-threshold gated (₹5 cr), with 24-hour cancellation. Real GSP/NIC
+  adapters implement the same interface.
+
+**Thermal printing & receipts** — [`ReceiptService`](../backend/src/services/ReceiptService.ts)
+renders three artifacts from an invoice: raw **ESC/POS** byte streams for 58 mm/80 mm
+Bluetooth printers (init, alignment, bold, GST tax block, native QR with a UPI payment
+link, feed + cut), an **A4 PDF** bill (dependency-free writer, embeds the IRN when
+present), and a **WhatsApp** `wa.me` share link with a prefilled bill summary + PDF URL.
 
 **Webhook API for Tally / Vyapar / Marg ERP:**
 

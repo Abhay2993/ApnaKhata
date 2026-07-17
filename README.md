@@ -46,6 +46,10 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/CreditSimulatorService.ts` | What-if projections ("pay 10 days earlier → +21") using the exact evaluator math. |
 | `backend/src/services/CreditHistoryService.ts` | Score trend series from the daily snapshots. |
 | `backend/src/services/LenderSubmissionService.ts` + `backend/src/lenders/` | Submits signed passports to partner-bank sandboxes (SBI/ICICI/HDFC) for pre-approval. |
+| `database/migrations/004_billing_compliance.sql` | GST — invoice line items with HSN + CGST/SGST/IGST splits, e-invoice records, GSTR-1 (B2B + HSN) views. |
+| `backend/src/services/GstInvoiceService.ts` | GST-compliant invoicing (intra/inter-state tax split) and filing-ready GSTR-1 / GSTR-3B exports. |
+| `backend/src/services/EInvoiceService.ts` + `backend/src/irp/` | E-invoicing / IRN generation via a pluggable IRP gateway, with turnover-threshold check and 24h cancellation. |
+| `backend/src/services/ReceiptService.ts` | ESC/POS thermal bytes (with UPI QR), A4 PDF bill, and WhatsApp share link. |
 | `mobile/src/screens/ScanScreen.tsx` | Camera barcode/QR scanner — billing cart and batch/expiry stock-in modes. |
 | `services/forecasting/forecast.py` | FastAPI + Prophet stock-forecasting microservice (Indian festival seasonality, safety-stock index, reorder recommendations). |
 | `services/forecasting/requirements.txt` | Python dependencies for the forecasting service. |

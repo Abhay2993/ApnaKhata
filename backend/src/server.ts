@@ -16,6 +16,9 @@ import { ConsoleNotifier, Notifier } from './notifications/Notifier';
 import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { CreditHistoryService } from './services/CreditHistoryService';
+import { EInvoiceService } from './services/EInvoiceService';
+import { GstInvoiceService } from './services/GstInvoiceService';
+import { ReceiptService } from './services/ReceiptService';
 import { CreditPassportService } from './services/CreditPassportService';
 import { CreditScoreEvaluator } from './services/CreditScoreEvaluator';
 import { CreditSimulatorService } from './services/CreditSimulatorService';
@@ -28,6 +31,7 @@ import { PaymentReminderService } from './services/PaymentReminderService';
 import { PurchaseOrderService } from './services/PurchaseOrderService';
 import { UpiCollectionService } from './services/UpiCollectionService';
 import { WarehouseService } from './services/WarehouseService';
+import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
@@ -71,6 +75,15 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       simulator: new CreditSimulatorService(db),
       history: new CreditHistoryService(db),
       lenders: new LenderSubmissionService(db, passports),
+    }),
+  );
+  const gst = new GstInvoiceService(db);
+  app.use(
+    '/v1',
+    complianceRoutes({
+      gst,
+      einvoice: new EInvoiceService(db, gst),
+      receipts: new ReceiptService(db, gst),
     }),
   );
 
