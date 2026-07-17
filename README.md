@@ -6,9 +6,15 @@ retailers) on a single, bank-grade financial rail.
 
 ## App preview
 
-GitHub can't execute a React Native app, so these rendered previews (mirroring the
-real components in `mobile/src/screens/`) are embedded directly in the repo. To run
-the live app, see [`mobile/README.md`](mobile/README.md).
+**Live on Vercel:** this repo's Vercel connection builds [`web/`](web/) — an
+interactive browser preview of the app (same screens, design tokens, and demo
+data as the mobile code) configured via the root [`vercel.json`](vercel.json).
+Push to the connected branch and open your Vercel deployment URL to use it.
+
+GitHub itself can't execute a React Native app, so these rendered previews
+(mirroring the real components in `mobile/src/screens/`) are also embedded
+directly in the repo. To run the real mobile app, see
+[`mobile/README.md`](mobile/README.md).
 
 | Dashboard | Scan & Bill |
 | :---: | :---: |
