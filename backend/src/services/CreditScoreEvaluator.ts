@@ -17,7 +17,18 @@
 
 import { Pool } from 'pg';
 
-export type RiskTier = 'PRIME' | 'SUBPRIME' | 'HIGH_RISK';
+import {
+  applyDamping,
+  clamp01,
+  composite,
+  inventoryTurnNormalizedFromDio,
+  repaymentNormalizedFromDelay,
+  RiskTier,
+  scoreFromDamped,
+  tierFromScore,
+} from './creditScoring';
+
+export type { RiskTier };
 
 export interface PillarBreakdown {
   repaymentVelocity: number; // 0..100
@@ -37,22 +48,8 @@ export interface CreditEvaluation {
   evaluatedAt: Date;
 }
 
-const WEIGHTS = {
-  repayment: 0.4,
-  consistency: 0.3,
-  retention: 0.2,
-  inventoryTurn: 0.1,
-} as const;
-
-const SCORE_FLOOR = 300;
-const SCORE_CEILING = 900;
-const PRIME_THRESHOLD = 740;
-const SUBPRIME_THRESHOLD = 580;
-
 /** Months of ledger history considered by every pillar query. */
 const LOOKBACK_MONTHS = 12;
-
-const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
 
 export class CreditScoreEvaluator {
   constructor(private readonly db: Pool) {}
@@ -69,21 +66,21 @@ export class CreditScoreEvaluator {
       this.scoreInventoryTurn(userId),
     ]);
 
-    const composite =
-      repayment.normalized * WEIGHTS.repayment +
-      consistency.normalized * WEIGHTS.consistency +
-      retention.normalized * WEIGHTS.retention +
-      inventoryTurn.normalized * WEIGHTS.inventoryTurn;
-
     // Thin files must not look like strong files: below 3 months of history the
     // composite is pulled toward the midpoint proportionally to coverage.
     const coverage = consistency.coverageMonths;
-    const confidence = clamp01(coverage / 3);
-    const damped = composite * confidence + 0.5 * (1 - confidence);
+    const damped = applyDamping(
+      composite({
+        repayment: repayment.normalized,
+        consistency: consistency.normalized,
+        retention: retention.normalized,
+        inventoryTurn: inventoryTurn.normalized,
+      }),
+      coverage,
+    );
 
-    const score = Math.round(SCORE_FLOOR + damped * (SCORE_CEILING - SCORE_FLOOR));
-    const tier: RiskTier =
-      score >= PRIME_THRESHOLD ? 'PRIME' : score >= SUBPRIME_THRESHOLD ? 'SUBPRIME' : 'HIGH_RISK';
+    const score = scoreFromDamped(damped);
+    const tier: RiskTier = tierFromScore(score);
 
     const evaluation: CreditEvaluation = {
       userId,
@@ -139,11 +136,7 @@ export class CreditScoreEvaluator {
     if (sampleSize === 0) return { normalized: 0.5, averageDelayDays: 0 }; // neutral: no evidence either way
 
     const avgDelay = Number(rows[0].avg_delay ?? 0);
-    // <= 0 days late maps to [0.9, 1.0]; lateness decays with 30-day half-life.
-    const normalized =
-      avgDelay <= 0
-        ? clamp01(0.9 + Math.min(-avgDelay, 10) / 100)
-        : clamp01(0.9 * Math.pow(0.5, avgDelay / 30));
+    const normalized = repaymentNormalizedFromDelay(avgDelay);
 
     return { normalized, averageDelayDays: Math.round(avgDelay * 100) / 100 };
   }
@@ -254,7 +247,7 @@ export class CreditScoreEvaluator {
     if (dailyCogs <= 0 || invValue <= 0) return { normalized: 0.5, dio: null }; // neutral: no signal
 
     const dio = invValue / dailyCogs;
-    const normalized = clamp01(1 - (dio - 25) / 95); // linear: 25d → 1.0, 120d → 0.0
+    const normalized = inventoryTurnNormalizedFromDio(dio);
     return { normalized, dio: Math.round(dio * 100) / 100 };
   }
 

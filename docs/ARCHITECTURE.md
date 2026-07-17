@@ -199,21 +199,38 @@ behavior (non-custodial — ApnaKhata never touches funds):
 | Supplier retention & disputes | 20% | Tenure-weighted stability of B2B relationships minus dispute rate. |
 | Inventory turn | 10% | Days of Inventory Outstanding (DIO) vs. category benchmark. |
 
-Tiers: **PRIME ≥ 740**, **SUBPRIME 580–739**, **HIGH_RISK < 580**.
+Tiers: **PRIME ≥ 740**, **SUBPRIME 580–739**, **HIGH_RISK < 580**. The scoring math
+(weights, pillar formulas, damping, tiers) lives in
+[`creditScoring.ts`](../backend/src/services/creditScoring.ts) — one source of truth
+shared by the evaluator and the what-if simulator, so a projection can never drift
+from a real evaluation.
 
-**ApnaKhata Credit Risk Passport (PDF):**
+**Credit & banking extensions** (migration
+[`003_credit_banking.sql`](../database/migrations/003_credit_banking.sql)):
 
-1. Credit engine emits a canonical JSON report (score, pillar sub-scores, 12-month
-   ledger aggregates, data-coverage disclosure).
-2. Report is rendered to PDF/A; the SHA-256 of the canonical JSON is signed with the
-   platform's **Ed25519** key; signature + key ID are embedded in the PDF (visible
-   block + XMP metadata) and as a QR verification link.
-3. Banks verify via `GET /v1/credit-passport/{passportId}/verify` (returns the
-   canonical JSON, signature, and public key) — or fully offline against ApnaKhata's
-   published public key. Any PDF tampering breaks the hash; any JSON tampering breaks
-   the signature.
-4. Every passport issuance is recorded in an append-only, hash-chained audit table so
-   historical passports remain provable.
+- **Signed Credit Risk Passport** — [`CreditPassportService`](../backend/src/services/CreditPassportService.ts)
+  emits a canonical (sorted-key) JSON report over the score, pillar sub-scores, and
+  12-month ledger aggregates; SHA-256s it; signs that with the platform **Ed25519**
+  key; and stores it hash-chained per user (`prev_hash` → previous report SHA). The
+  signed PDF is rendered deterministically from the stored JSON (dependency-free
+  writer in `pdf/SimplePdf.ts`). Banks verify via
+  `GET /v1/credit/passports/{id}/verify` or fully offline against the published public
+  key (`/v1/credit/passports/public-key`) — any JSON edit breaks the signature, any
+  PDF edit breaks the hash.
+- **Score simulator** — [`CreditSimulatorService`](../backend/src/services/CreditSimulatorService.ts)
+  holds all pillars fixed except the one a scenario touches, recomputes it from the
+  hypothetical input (e.g. avg days-late − 10, or DIO − 15) via the shared math, and
+  returns the projected score/tier and delta. `/v1/credit/suggestions` ranks the
+  highest-leverage nudges.
+- **Score history & trend** — a trigger snapshots `credit_score_metrics` into
+  `credit_score_history` (deduped per day) on every recompute;
+  [`CreditHistoryService`](../backend/src/services/CreditHistoryService.ts) returns the
+  series plus direction for the trend chart.
+- **Direct lender submission** — [`LenderSubmissionService`](../backend/src/services/LenderSubmissionService.ts)
+  issues (or reuses) a passport and submits it through a
+  [`LenderGateway`](../backend/src/lenders/LenderGateway.ts) to a partner bank's
+  pre-approval sandbox (throughput-based sizing gated by tier), recording the decision
+  in `lender_submissions`. Real SBI/ICICI/HDFC adapters implement the same interface.
 
 ---
 

@@ -15,10 +15,14 @@ import { Pool } from 'pg';
 import { ConsoleNotifier, Notifier } from './notifications/Notifier';
 import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
+import { CreditHistoryService } from './services/CreditHistoryService';
+import { CreditPassportService } from './services/CreditPassportService';
 import { CreditScoreEvaluator } from './services/CreditScoreEvaluator';
+import { CreditSimulatorService } from './services/CreditSimulatorService';
 import { DisputeService } from './services/DisputeService';
 import { DistributorDemandService } from './services/DistributorDemandService';
 import { InterestAccrualService } from './services/InterestAccrualService';
+import { LenderSubmissionService } from './services/LenderSubmissionService';
 import { PaymentPlanService } from './services/PaymentPlanService';
 import { PaymentReminderService } from './services/PaymentReminderService';
 import { PurchaseOrderService } from './services/PurchaseOrderService';
@@ -57,11 +61,16 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       warehouse: new WarehouseService(db),
     }),
   );
+  const passports = new CreditPassportService(db);
   app.use(
     '/v1',
     creditRoutes({
       creditScore: new CreditScoreEvaluator(db),
       demand: new DistributorDemandService(db),
+      passports,
+      simulator: new CreditSimulatorService(db),
+      history: new CreditHistoryService(db),
+      lenders: new LenderSubmissionService(db, passports),
     }),
   );
 
