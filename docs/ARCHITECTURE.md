@@ -150,11 +150,40 @@ Implemented in [`services/forecasting/forecast.py`](../services/forecasting/fore
   behavior. Falls back to a weighted moving average when history is too sparse for
   Prophet (< 14 sale days).
 - **Output per SKU:**
-  - `predicted_out_of_stock_date` — first date cumulative forecast demand ≥ current stock;
+  - `predicted_out_of_stock_date` — first date cumulative forecast demand ≥ usable stock;
   - `safety_stock` — `z(service_level) × σ_demand × √lead_time_days`;
   - `recommended_order_qty` — forecast demand over `lead_time + review period`
-    + safety stock − current stock, rounded up to the distributor's pack size;
+    + safety stock − usable stock, rounded up to the distributor's pack size;
   - forecast series with confidence bounds for the mobile micro-charts.
+- **Expiry-aware usable stock:** the request may carry the item's batch/expiry
+  breakdown (`batches`, supplied by `BatchExpiryService.getBatchesForForecast()`).
+  A FEFO waste model consumes forecast demand against the earliest-expiring batch
+  first; units a batch still holds on its expiry date count as waste, shrinking
+  usable stock — which pulls the stockout date earlier and raises the reorder qty.
+
+**Inventory extensions** (migration [`002_inventory_forecasting.sql`](../database/migrations/002_inventory_forecasting.sql)):
+
+- **One-tap reorder → PO** — `PurchaseOrderService.createFromForecast()` turns the
+  stored recommendation into a SUBMITTED purchase order to the item's preferred
+  distributor (the dashboard ORDER button calls this). Goods receipt
+  (`receive_purchase_order()`) atomically closes the PO, raises the B2B invoice on
+  the ledger, and stocks every line into expiry-aware batches — the procurement
+  khata entry writes itself.
+- **Barcode/QR scanning** — `barcode` column on inventory (unique per owner);
+  `BarcodeInventoryService` resolves scans, stocks in batches, and sells FEFO via
+  `consume_stock_fefo()`. The mobile `ScanScreen` (react-native-vision-camera v4)
+  drives billing-cart and stock-in modes with no extra hardware.
+- **Batch & expiry tracking** — `inventory_batches` under the owner-level aggregate;
+  `v_expiring_stock` powers near-expiry alerts with value-at-risk;
+  `write_off_expired()` runs daily and books ADJUSTMENT movements.
+- **Multi-location stock** — `stock_locations` (store + godowns); `transfer_stock()`
+  moves FEFO between locations preserving batch identity; aggregate owner stock is
+  location-invariant.
+- **Distributor demand rollup** — every forecast run is recorded in
+  `demand_forecasts` (latest per item); `v_distributor_demand` aggregates demand
+  across all retailers naming that distributor as preferred supplier, so
+  distributors see tomorrow's reorders (SKU, total qty, retailer count, earliest
+  stockout) before they arrive.
 
 ### 2.4 Bank-Ready Credit Evaluation Engine
 

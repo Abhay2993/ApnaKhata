@@ -99,6 +99,11 @@ class SalesRecord(BaseModel):
     units_sold: float = Field(..., ge=0, description="Total units sold that day")
 
 
+class BatchInfo(BaseModel):
+    quantity: float = Field(..., gt=0, description="Units remaining in this batch")
+    expiry_date: Optional[date] = Field(default=None, description="None = non-perishable")
+
+
 class ForecastRequest(BaseModel):
     sku: str = Field(..., min_length=1, max_length=64)
     product_name: Optional[str] = None
@@ -108,6 +113,11 @@ class ForecastRequest(BaseModel):
     service_level: float = Field(default=0.95, description="Target in-stock probability")
     pack_size: int = Field(default=1, ge=1, description="Distributor case size; order qty is rounded up to this")
     history: list[SalesRecord] = Field(..., min_length=1)
+    batches: Optional[list[BatchInfo]] = Field(
+        default=None,
+        description="Batch/expiry breakdown of current stock; units that will expire "
+        "before forecast demand reaches them are excluded from usable stock",
+    )
 
     @field_validator("service_level")
     @classmethod
@@ -128,12 +138,14 @@ class ForecastResponse(BaseModel):
     sku: str
     model_used: str                      # "prophet" | "weighted_moving_average"
     current_stock: float
+    usable_stock: float                  # current_stock minus units forecast to expire unsold
+    expiring_waste_units: float          # units expected to expire before demand reaches them
     daily_demand_mean: float
     daily_demand_std: float
     predicted_out_of_stock_date: Optional[date]
     days_until_stockout: Optional[int]
     safety_stock: float                  # units to hold as buffer
-    safety_stock_index: float            # current_stock / (safety_stock + lead-time demand); <1 = danger
+    safety_stock_index: float            # usable_stock / (safety_stock + lead-time demand); <1 = danger
     reorder_point: float                 # trigger level in units
     recommended_order_qty: int           # units, rounded up to pack_size
     forecast: list[ForecastPoint]
@@ -204,6 +216,42 @@ def _stockout_date(fcst: pd.DataFrame, current_stock: float) -> Optional[date]:
     return exhausted.iloc[0].date()
 
 
+def _usable_stock(
+    fcst: pd.DataFrame, current_stock: float, batches: Optional[list[BatchInfo]]
+) -> tuple[float, float]:
+    """FEFO waste model: demand consumes the earliest-expiring batch first, so
+    any units a batch still holds when it expires are waste. Returns
+    (usable_stock, waste_units). Without batch data, everything is usable."""
+    if not batches:
+        return current_stock, 0.0
+
+    cumulative = fcst["yhat"].cumsum()
+    horizon_end = fcst["ds"].max()
+
+    def demand_by(day: date) -> float:
+        ts = pd.Timestamp(day)
+        if ts >= horizon_end:            # expiry beyond horizon: assume fully sellable
+            return float("inf")
+        window = cumulative[fcst["ds"] <= ts]
+        return float(window.iloc[-1]) if len(window) else 0.0
+
+    perishable = sorted(
+        (b for b in batches if b.expiry_date is not None), key=lambda b: b.expiry_date
+    )
+    consumed = 0.0
+    waste = 0.0
+    for batch in perishable:
+        if batch.expiry_date < date.today():
+            waste += batch.quantity      # already expired on the shelf
+            continue
+        sellable = max(demand_by(batch.expiry_date) - consumed, 0.0)
+        used = min(batch.quantity, sellable)
+        waste += batch.quantity - used
+        consumed += used
+
+    return max(current_stock - waste, 0.0), round(waste, 3)
+
+
 # ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
@@ -244,17 +292,20 @@ def forecast_stock(req: ForecastRequest) -> ForecastResponse:
     lead_time_demand = demand_mean * lead
     reorder_point = lead_time_demand + safety_stock
 
+    # Batch/expiry-aware: units that will expire unsold don't count as stock.
+    usable_stock, waste_units = _usable_stock(fcst, req.current_stock, req.batches)
+
     # Order enough to cover lead time + one review period, plus the buffer,
-    # net of what is already on the shelf.
+    # net of what is *usable* on the shelf.
     coverage_demand = demand_mean * (lead + req.review_period_days)
-    raw_order = max(coverage_demand + safety_stock - req.current_stock, 0.0)
+    raw_order = max(coverage_demand + safety_stock - usable_stock, 0.0)
     recommended_order_qty = int(math.ceil(raw_order / req.pack_size) * req.pack_size) if raw_order > 0 else 0
 
-    oos_date = _stockout_date(fcst, req.current_stock)
+    oos_date = _stockout_date(fcst, usable_stock)
     days_until = (oos_date - date.today()).days if oos_date else None
 
     denominator = reorder_point if reorder_point > 0 else 1.0
-    safety_stock_index = round(req.current_stock / denominator, 3)
+    safety_stock_index = round(usable_stock / denominator, 3)
 
     if demand_mean <= 0 and req.current_stock <= 0:
         raise HTTPException(status_code=422, detail="No demand signal and no stock: nothing to forecast.")
@@ -263,6 +314,8 @@ def forecast_stock(req: ForecastRequest) -> ForecastResponse:
         sku=req.sku,
         model_used=model_used,
         current_stock=req.current_stock,
+        usable_stock=round(usable_stock, 3),
+        expiring_waste_units=waste_units,
         daily_demand_mean=round(demand_mean, 3),
         daily_demand_std=round(demand_std, 3),
         predicted_out_of_stock_date=oos_date,

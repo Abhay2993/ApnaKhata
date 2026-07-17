@@ -8,9 +8,11 @@
  * docs/ARCHITECTURE.md §3.1. The score arc and sparklines use react-native-svg.
  */
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, SafeAreaView, StatusBar, Text, View } from 'react-native';
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
+
+import { api } from '../api/client';
 
 // ---------------------------------------------------------------------------
 // Design tokens (mirrors tailwind.config.js theme.extend.colors)
@@ -47,6 +49,7 @@ interface CashFlowSummary {
 
 interface StockAlert {
   id: string;
+  inventoryId: string; // backend item id — the one-tap reorder target
   productName: string;
   sku: string;
   currentStock: number;
@@ -56,6 +59,8 @@ interface StockAlert {
   distributorName: string;
   trend: number[]; // last 14 days of unit sales, for the sparkline
 }
+
+type OrderState = 'idle' | 'pending' | 'ordered' | 'failed';
 
 // ---------------------------------------------------------------------------
 // Mock state — replaced by useDashboardQuery() against the NestJS gateway
@@ -77,6 +82,7 @@ const cashFlow: CashFlowSummary = {
 const stockAlerts: StockAlert[] = [
   {
     id: '1',
+    inventoryId: 'inv-tata-salt-1kg',
     productName: 'Tata Salt 1kg',
     sku: 'TATA-SALT-1KG',
     currentStock: 14,
@@ -88,6 +94,7 @@ const stockAlerts: StockAlert[] = [
   },
   {
     id: '2',
+    inventoryId: 'inv-fort-oil-1l',
     productName: 'Fortune Sunflower Oil 1L',
     sku: 'FORT-OIL-1L',
     currentStock: 22,
@@ -99,6 +106,7 @@ const stockAlerts: StockAlert[] = [
   },
   {
     id: '3',
+    inventoryId: 'inv-parle-g-800',
     productName: 'Parle-G 800g Family Pack',
     sku: 'PARLE-G-800',
     currentStock: 35,
@@ -299,10 +307,25 @@ const CashFlowCard: React.FC<{ data: CashFlowSummary }> = ({ data }) => (
 const urgencyColor = (days: number): string =>
   days <= 3 ? palette.danger : days <= 7 ? palette.goldBright : palette.slate;
 
-const StockAlertRow: React.FC<{ item: StockAlert; onReorder: (item: StockAlert) => void }> = ({
-  item,
-  onReorder,
-}) => (
+const orderButtonLabel = (state: OrderState, qty: number): string => {
+  switch (state) {
+    case 'pending':
+      return 'PLACING…';
+    case 'ordered':
+      return 'ORDERED ✓';
+    case 'failed':
+      return 'RETRY ORDER';
+    default:
+      return `ORDER ${qty}`;
+  }
+};
+
+const StockAlertRow: React.FC<{
+  item: StockAlert;
+  orderState: OrderState;
+  poNumber?: string;
+  onReorder: (item: StockAlert) => void;
+}> = ({ item, orderState, poNumber, onReorder }) => (
   <View className="mx-5 mb-3 rounded-xl border border-[#C5A05926] bg-[#1F2833] p-4">
     <View className="flex-row items-center justify-between">
       <View className="mr-3 flex-1">
@@ -323,17 +346,30 @@ const StockAlertRow: React.FC<{ item: StockAlert; onReorder: (item: StockAlert) 
           style={{ backgroundColor: urgencyColor(item.daysUntilStockout) }}
         />
         <Text className="ml-2 text-xs" style={{ color: urgencyColor(item.daysUntilStockout) }}>
-          Depletes in {item.daysUntilStockout} {item.daysUntilStockout === 1 ? 'day' : 'days'}
+          {orderState === 'ordered' && poNumber
+            ? `PO ${poNumber} sent to ${item.distributorName}`
+            : `Depletes in ${item.daysUntilStockout} ${item.daysUntilStockout === 1 ? 'day' : 'days'}`}
         </Text>
       </View>
       <Pressable
-        className="rounded-lg bg-[#C5A059] px-4 py-2 active:opacity-80"
+        className={`rounded-lg px-4 py-2 active:opacity-80 ${
+          orderState === 'ordered'
+            ? 'border border-[#C5A059] bg-transparent'
+            : orderState === 'pending'
+              ? 'bg-[#C5A05966]'
+              : 'bg-[#C5A059]'
+        }`}
+        disabled={orderState === 'pending' || orderState === 'ordered'}
         onPress={() => onReorder(item)}
         accessibilityRole="button"
         accessibilityLabel={`Reorder ${item.recommendedOrderQty} units of ${item.productName}`}
       >
-        <Text className="text-xs font-semibold tracking-wide text-[#0B0C10]">
-          ORDER {item.recommendedOrderQty}
+        <Text
+          className={`text-xs font-semibold tracking-wide ${
+            orderState === 'ordered' ? 'text-[#C5A059]' : 'text-[#0B0C10]'
+          }`}
+        >
+          {orderButtonLabel(orderState, item.recommendedOrderQty)}
         </Text>
       </Pressable>
     </View>
@@ -344,10 +380,20 @@ const StockAlertRow: React.FC<{ item: StockAlert; onReorder: (item: StockAlert) 
 // Screen
 // ---------------------------------------------------------------------------
 const DashboardScreen: React.FC = () => {
-  const handleReorder = (item: StockAlert): void => {
-    // Navigates to the purchase-order composer pre-filled from the forecast.
-    console.log(`reorder ${item.recommendedOrderQty} × ${item.sku}`);
-  };
+  const [orderStates, setOrderStates] = useState<Record<string, OrderState>>({});
+  const [poNumbers, setPoNumbers] = useState<Record<string, string>>({});
+
+  // One-tap reorder: forecast recommendation → SUBMITTED purchase order.
+  const handleReorder = useCallback(async (item: StockAlert): Promise<void> => {
+    setOrderStates((prev) => ({ ...prev, [item.id]: 'pending' }));
+    try {
+      const po = await api.createPurchaseOrderFromForecast(item.inventoryId);
+      setPoNumbers((prev) => ({ ...prev, [item.id]: po.poNumber }));
+      setOrderStates((prev) => ({ ...prev, [item.id]: 'ordered' }));
+    } catch {
+      setOrderStates((prev) => ({ ...prev, [item.id]: 'failed' }));
+    }
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-[#0B0C10]">
@@ -355,7 +401,14 @@ const DashboardScreen: React.FC = () => {
       <FlatList
         data={stockAlerts}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <StockAlertRow item={item} onReorder={handleReorder} />}
+        renderItem={({ item }) => (
+          <StockAlertRow
+            item={item}
+            orderState={orderStates[item.id] ?? 'idle'}
+            poNumber={poNumbers[item.id]}
+            onReorder={handleReorder}
+          />
+        )}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
