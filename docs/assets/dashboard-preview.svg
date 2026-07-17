@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="Helvetica, Arial, sans-serif">
+  <!-- ApnaKhata dashboard — rendered preview of mobile/src/screens/DashboardScreen.tsx -->
+  <rect x="1" y="1" width="388" height="842" rx="40" fill="#0B0C10" stroke="#33363D" stroke-width="2"/>
+
+  <!-- status bar -->
+  <text x="36" y="38" font-size="13" fill="#F5F5F7" font-weight="bold">9:41</text>
+  <rect x="330" y="28" width="22" height="11" rx="3" fill="none" stroke="#C0C0C0" stroke-width="1"/>
+  <rect x="332" y="30" width="14" height="7" rx="1.5" fill="#C0C0C0"/>
+
+  <!-- header -->
+  <text x="24" y="78" font-size="24" fill="#F5F5F7" font-family="Georgia, 'Times New Roman', serif">ApnaKhata</text>
+  <text x="366" y="76" font-size="11" fill="#C0C0C0" text-anchor="end" letter-spacing="1">Gupta General Store</text>
+
+  <!-- credit passport card -->
+  <rect x="20" y="94" width="350" height="238" rx="16" fill="#1F2833" fill-opacity="0.85" stroke="#C5A059" stroke-opacity="0.35"/>
+  <text x="44" y="128" font-size="10" fill="#C0C0C0" letter-spacing="3">APNAKHATA CREDIT PASSPORT</text>
+  <rect x="290" y="112" width="58" height="22" rx="11" fill="none" stroke="#C5A059" stroke-opacity="0.4"/>
+  <text x="319" y="127" font-size="10" fill="#D4AF37" font-weight="bold" text-anchor="middle" letter-spacing="2">PRIME</text>
+
+  <!-- score arc: 240° gauge, progress = (782-300)/600 -->
+  <g transform="translate(44,148)">
+    <path d="M 16.45 123 A 78 78 0 1 1 151.55 123" fill="none" stroke="#2A3542" stroke-width="7" stroke-linecap="round"/>
+    <path d="M 16.45 123 A 78 78 0 1 1 158.5 60.9" fill="none" stroke="#C5A059" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="158.5" cy="60.9" r="7" fill="#D4AF37"/>
+    <text x="84" y="96" font-size="42" fill="#F5F5F7" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif">782</text>
+    <text x="84" y="114" font-size="9" fill="#C0C0C0" text-anchor="middle" letter-spacing="2">OF 900</text>
+  </g>
+
+  <!-- right column: loan status -->
+  <text x="238" y="170" font-size="9" fill="#C0C0C0" letter-spacing="2">WORKING CAPITAL</text>
+  <text x="238" y="196" font-size="22" fill="#D4AF37" font-weight="bold">₹2,50,000</text>
+  <text x="238" y="216" font-size="10" fill="#C0C0C0">Pre-approved · HDFC Bank</text>
+  <rect x="238" y="232" width="118" height="30" rx="8" fill="none" stroke="#C5A059"/>
+  <text x="297" y="251" font-size="9" fill="#C5A059" font-weight="bold" text-anchor="middle" letter-spacing="1.5">EXPORT PASSPORT</text>
+
+  <!-- cash flow card -->
+  <rect x="20" y="346" width="350" height="148" rx="16" fill="#1F2833" stroke="#C5A059" stroke-opacity="0.2"/>
+  <text x="44" y="378" font-size="10" fill="#C0C0C0" letter-spacing="3">CASH FLOW</text>
+  <text x="44" y="402" font-size="9" fill="#C0C0C0" letter-spacing="2">TO RECEIVE</text>
+  <text x="44" y="424" font-size="20" fill="#D4AF37" font-weight="bold">₹1,84,250</text>
+  <text x="210" y="402" font-size="9" fill="#C0C0C0" letter-spacing="2">TO PAY</text>
+  <text x="210" y="424" font-size="20" fill="#F5F5F7" font-weight="bold">₹96,400</text>
+  <line x1="44" y1="442" x2="346" y2="442" stroke="#C0C0C0" stroke-opacity="0.13"/>
+  <text x="44" y="462" font-size="9" fill="#C0C0C0" letter-spacing="2">COLLECTED TODAY</text>
+  <text x="44" y="482" font-size="16" fill="#F5F5F7">₹12,750</text>
+
+  <!-- stock alerts header -->
+  <text x="24" y="528" font-size="10" fill="#C0C0C0" letter-spacing="3">STOCK ALERTS</text>
+  <text x="366" y="528" font-size="10" fill="#C5A059" text-anchor="end">Forecast · next 45 days</text>
+
+  <!-- alert row 1: critical -->
+  <rect x="20" y="540" width="350" height="86" rx="12" fill="#1F2833" stroke="#C5A059" stroke-opacity="0.15"/>
+  <text x="36" y="564" font-size="14" fill="#F5F5F7">Tata Salt 1kg</text>
+  <text x="36" y="580" font-size="10" fill="#C0C0C0">14 PCS left · Sharma Distributors</text>
+  <polyline points="282,578 288,574 294,576 300,572 306,578 312,568 318,574 324,570 330,572 336,566 342,570 348,564 354,568 358,566"
+            fill="none" stroke="#C0C0C0" stroke-width="1.5" stroke-opacity="0.7"/>
+  <circle cx="40" cy="604" r="3" fill="#B4544B"/>
+  <text x="50" y="608" font-size="11" fill="#B4544B">Depletes in 2 days</text>
+  <rect x="278" y="592" width="80" height="26" rx="8" fill="#C5A059"/>
+  <text x="318" y="609" font-size="10" fill="#0B0C10" font-weight="bold" text-anchor="middle" letter-spacing="1">ORDER 96</text>
+
+  <!-- alert row 2: warning -->
+  <rect x="20" y="634" width="350" height="86" rx="12" fill="#1F2833" stroke="#C5A059" stroke-opacity="0.15"/>
+  <text x="36" y="658" font-size="14" fill="#F5F5F7">Fortune Sunflower Oil 1L</text>
+  <text x="36" y="674" font-size="10" fill="#C0C0C0">22 PCS left · Agarwal Trading Co.</text>
+  <polyline points="282,672 288,670 294,670 300,668 306,672 312,664 318,670 324,668 330,668 336,670 342,664 348,668 354,670 358,668"
+            fill="none" stroke="#C0C0C0" stroke-width="1.5" stroke-opacity="0.7"/>
+  <circle cx="40" cy="698" r="3" fill="#D4AF37"/>
+  <text x="50" y="702" font-size="11" fill="#D4AF37">Depletes in 5 days</text>
+  <rect x="278" y="686" width="80" height="26" rx="8" fill="#C5A059"/>
+  <text x="318" y="703" font-size="10" fill="#0B0C10" font-weight="bold" text-anchor="middle" letter-spacing="1">ORDER 48</text>
+
+  <!-- alert row 3: ordered state -->
+  <rect x="20" y="728" width="350" height="86" rx="12" fill="#1F2833" stroke="#C5A059" stroke-opacity="0.15"/>
+  <text x="36" y="752" font-size="14" fill="#F5F5F7">Parle-G 800g Family Pack</text>
+  <text x="36" y="768" font-size="10" fill="#C0C0C0">35 PCS left · Sharma Distributors</text>
+  <polyline points="282,764 288,766 294,762 300,764 306,764 312,762 318,766 324,764 330,762 336,764 342,766 348,764 354,762 358,764"
+            fill="none" stroke="#C0C0C0" stroke-width="1.5" stroke-opacity="0.7"/>
+  <circle cx="40" cy="792" r="3" fill="#C5A059"/>
+  <text x="50" y="796" font-size="11" fill="#C5A059">PO sent to Sharma Distributors</text>
+  <rect x="278" y="780" width="80" height="26" rx="8" fill="none" stroke="#C5A059"/>
+  <text x="318" y="797" font-size="10" fill="#C5A059" font-weight="bold" text-anchor="middle" letter-spacing="1">ORDERED ✓</text>
+</svg>

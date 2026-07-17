@@ -4,6 +4,16 @@ A premium B2B ledger, billing, and intelligent inventory ecosystem for the India
 supply chain — connecting **Distributors** (wholesalers) and **Shop Owners** (kirana /
 retailers) on a single, bank-grade financial rail.
 
+## App preview
+
+GitHub can't execute a React Native app, so these rendered previews (mirroring the
+real components in `mobile/src/screens/`) are embedded directly in the repo. To run
+the live app, see [`mobile/README.md`](mobile/README.md).
+
+| Dashboard | Scan & Bill |
+| :---: | :---: |
+| <img src="docs/assets/dashboard-preview.svg" width="330" alt="Dashboard: credit passport with 782 score arc, cash flow balances, forecast-driven stock alerts with one-tap reorder"/> | <img src="docs/assets/scan-preview.svg" width="330" alt="Scan and bill: camera barcode viewfinder, billing cart, charge button"/> |
+
 ## What lives where
 
 | Path | Purpose |
