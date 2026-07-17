@@ -104,6 +104,53 @@ export class PurchaseOrderService {
     });
   }
 
+  /**
+   * Marketplace order: a shopkeeper orders items from a dealer's catalog. Prices
+   * and product details are taken from `dealer_products` (not client-supplied),
+   * and each line is validated against the dealer's minimum order quantity.
+   */
+  async createFromCatalog(
+    buyerId: string,
+    dealerId: string,
+    lines: { sku: string; quantity: number }[],
+    notes?: string,
+  ): Promise<PurchaseOrder> {
+    if (lines.length === 0) throw new Error('order needs at least one item');
+
+    const skus = lines.map((l) => l.sku);
+    const { rows } = await this.db.query<{
+      sku: string;
+      product_name: string;
+      unit: string;
+      wholesale_price: string;
+      moq: number;
+    }>(
+      `SELECT sku, product_name, unit, wholesale_price, moq
+         FROM dealer_products
+        WHERE dealer_id = $1 AND is_active AND available AND sku = ANY($2::text[])`,
+      [dealerId, skus],
+    );
+    const catalog = new Map(rows.map((r) => [r.sku, r]));
+
+    const items = lines.map((line) => {
+      const product = catalog.get(line.sku);
+      if (!product) throw new Error(`sku ${line.sku} is unavailable from this dealer`);
+      if (line.quantity < product.moq) {
+        throw new Error(`order quantity for ${line.sku} must be at least the MOQ of ${product.moq}`);
+      }
+      return {
+        sku: product.sku,
+        productName: product.product_name,
+        unit: product.unit,
+        quantity: line.quantity,
+        unitPrice: Number(product.wholesale_price),
+        source: 'MANUAL' as const,
+      };
+    });
+
+    return this.createOrder({ buyerId, supplierId: dealerId, items, notes, submit: true });
+  }
+
   /** Create a PO (optionally already SUBMITTED) with its line items. */
   async createOrder(input: {
     buyerId: string;

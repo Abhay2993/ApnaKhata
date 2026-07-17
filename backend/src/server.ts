@@ -23,8 +23,10 @@ import { CreditPassportService } from './services/CreditPassportService';
 import { CreditScoreEvaluator } from './services/CreditScoreEvaluator';
 import { CreditSimulatorService } from './services/CreditSimulatorService';
 import { DashboardService } from './services/DashboardService';
+import { DealerDirectoryService } from './services/DealerDirectoryService';
 import { DisputeService } from './services/DisputeService';
 import { DistributorDemandService } from './services/DistributorDemandService';
+import { IntegrationService } from './services/IntegrationService';
 import { InterestAccrualService } from './services/InterestAccrualService';
 import { LenderSubmissionService } from './services/LenderSubmissionService';
 import { PaymentPlanService } from './services/PaymentPlanService';
@@ -36,16 +38,30 @@ import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
+import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
+import { webhookRoutes } from './http/webhookRoutes';
 import { cors, errorHandler, requireApiKey } from './http/middleware';
+
+const SERVICE_API_KEY = process.env.APNAKHATA_API_KEY ?? 'dev-key';
 
 export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): Express {
   const app = express();
   app.use(cors);
-  app.use(express.json({ limit: '1mb' }));
+  // Capture the exact raw body so webhook HMAC verification is byte-accurate.
+  app.use(express.json({ limit: '1mb', verify: (req, _res, buf) => ((req as express.Request).rawBody = buf) }));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'apnakhata-gateway' });
   });
+
+  const integrations = new IntegrationService(db);
+
+  // External billing webhook — authenticates via integration key + HMAC, so it
+  // is mounted BEFORE the /v1 service-key guard.
+  app.use('/integrations/webhooks', webhookRoutes(integrations));
+  // Live inventory SSE — query-param auth (EventSource can't set headers), so
+  // it too must sit before the header-only service-key guard.
+  app.get('/v1/inventory/live/stream', liveInventoryStreamHandler(SERVICE_API_KEY));
 
   app.use('/v1', requireApiKey);
   app.use(
@@ -87,6 +103,14 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       gst,
       einvoice: new EInvoiceService(db, gst),
       receipts: new ReceiptService(db, gst),
+    }),
+  );
+  app.use(
+    '/v1',
+    marketplaceRoutes({
+      dealers: new DealerDirectoryService(db),
+      purchaseOrders: new PurchaseOrderService(db),
+      integrations,
     }),
   );
 

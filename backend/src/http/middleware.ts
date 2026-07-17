@@ -13,6 +13,7 @@ import { NextFunction, Request, Response } from 'express';
 declare module 'express-serve-static-core' {
   interface Request {
     userId?: string;
+    rawBody?: Buffer;
   }
 }
 
@@ -62,6 +63,26 @@ export const wrap =
     fn(req, res).catch(next);
   };
 
+// Substrings that mark a client/domain (400) error rather than a server fault.
+const BAD_REQUEST_MARKERS = [
+  'must be',
+  'cannot',
+  'insufficient',
+  'invalid',
+  'unavailable',
+  'is not a',
+  'already',
+  'outside',
+  'missing',
+  'required',
+  'has no',
+  'no lines',
+  'no positive',
+  'no preferred',
+  'not registered',
+  'not a b2b',
+];
+
 /** Central error mapping: domain errors → 4xx, everything else → 500. */
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
   const message = err instanceof Error ? err.message : 'internal error';
@@ -69,15 +90,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
 
   if (lowered.includes('not found')) {
     res.status(404).json({ message });
-  } else if (
-    lowered.includes('must be') ||
-    lowered.includes('cannot') ||
-    lowered.includes('insufficient') ||
-    lowered.includes('invalid') ||
-    lowered.includes('no positive') ||
-    lowered.includes('no preferred') ||
-    lowered.includes('already')
-  ) {
+  } else if (BAD_REQUEST_MARKERS.some((m) => lowered.includes(m))) {
     res.status(400).json({ message });
   } else {
     console.error('unhandled error:', err);

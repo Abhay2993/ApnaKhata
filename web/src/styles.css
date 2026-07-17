@@ -456,6 +456,35 @@ body {
   background: var(--charcoal);
 }
 
+/* Marketplace */
+.mkt-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.mkt-search input {
+  flex: 1;
+  background: none;
+  border: 1px solid rgba(192, 192, 192, 0.25);
+  border-radius: 8px;
+  color: var(--alabaster);
+  font-size: 13px;
+  padding: 9px 12px;
+}
+.mkt-search input::placeholder {
+  color: rgba(192, 192, 192, 0.4);
+}
+.mkt-qty {
+  width: 64px;
+  background: none;
+  border: 1px solid rgba(197, 160, 89, 0.4);
+  border-radius: 8px;
+  color: var(--alabaster);
+  font-size: 14px;
+  text-align: center;
+  padding: 8px 6px;
+}
+
 /* Bottom tab bar */
 .tabbar {
   display: flex;

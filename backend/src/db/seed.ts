@@ -135,6 +135,21 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.distributor],
   );
 
+  // Dealer catalog so the marketplace search returns results.
+  await db.query(
+    `
+    INSERT INTO dealer_products (dealer_id, sku, product_name, category, brand, hsn_code, gst_rate,
+                                 wholesale_price, mrp, moq, pack_size, unit, lead_time_days)
+    VALUES
+      ($1,'TATA-SALT-1KG','Tata Salt 1kg','Grocery','Tata','2501',5,22,28,24,24,'PCS',2),
+      ($1,'FORT-OIL-1L','Fortune Sunflower Oil 1L','Grocery','Fortune','1512',5,150,165,12,12,'PCS',3),
+      ($1,'AASHIRVAAD-ATTA-5KG','Aashirvaad Atta 5kg','Grocery','Aashirvaad','1101',5,240,290,10,10,'BAG',3),
+      ($1,'PARLE-G-800','Parle-G 800g Family Pack','Biscuits','Parle','1905',18,84,98,20,20,'PCS',2)
+    ON CONFLICT (dealer_id, sku) DO NOTHING
+    `,
+    [DEMO.distributor],
+  );
+
   // Initial credit score so the dashboard has a number on first load.
   await new CreditScoreEvaluator(db).evaluate(DEMO.shopkeeper);
 

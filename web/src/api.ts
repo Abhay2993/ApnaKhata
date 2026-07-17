@@ -66,3 +66,63 @@ export async function reorderFromForecast(inventoryId: string): Promise<{ poNumb
   if (!res.ok) throw new Error(`reorder failed: ${res.status}`);
   return (await res.json()) as { poNumber: string };
 }
+
+// --- Marketplace ---
+export interface DealerSampleProduct {
+  sku: string;
+  productName: string;
+  wholesalePrice: number;
+  moq: number;
+  unit: string;
+}
+
+export interface DealerResult {
+  dealerId: string;
+  businessName: string;
+  city: string | null;
+  productCount: number;
+  minLeadTimeDays: number | null;
+  sampleProducts: DealerSampleProduct[];
+}
+
+export interface CatalogItem {
+  sku: string;
+  productName: string;
+  category: string;
+  wholesalePrice: number;
+  mrp: number | null;
+  moq: number;
+  unit: string;
+  leadTimeDays: number;
+}
+
+export async function searchDealers(query: string): Promise<DealerResult[]> {
+  if (!API_URL) throw new Error('no API configured');
+  const res = await fetch(`${API_URL}/v1/dealers/search?q=${encodeURIComponent(query)}`, { headers: headers() });
+  if (!res.ok) throw new Error(`search failed: ${res.status}`);
+  return (await res.json()) as DealerResult[];
+}
+
+export async function getCatalog(dealerId: string): Promise<CatalogItem[]> {
+  if (!API_URL) throw new Error('no API configured');
+  const res = await fetch(`${API_URL}/v1/dealers/${dealerId}/catalog`, { headers: headers() });
+  if (!res.ok) throw new Error(`catalog failed: ${res.status}`);
+  return (await res.json()) as CatalogItem[];
+}
+
+export async function orderFromCatalog(
+  dealerId: string,
+  lines: { sku: string; quantity: number }[],
+): Promise<{ poNumber: string; totalAmount: number }> {
+  if (!API_URL) throw new Error('no API configured');
+  const res = await fetch(`${API_URL}/v1/purchase-orders/from-catalog`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ dealerId, lines }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(err.message ?? `order failed: ${res.status}`);
+  }
+  return (await res.json()) as { poNumber: string; totalAmount: number };
+}

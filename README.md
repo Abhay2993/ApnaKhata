@@ -82,6 +82,10 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/DashboardService.ts` | One-call home-screen read model (credit summary, cash flow, forecast stock alerts) behind `GET /v1/dashboard`. |
 | `docker-compose.yml` + `backend/Dockerfile` + `web/Dockerfile` | Full stack in one command — db, migrate+seed, api, worker, live web UI. |
 | `web/src/api.ts` | Web API client; the dashboard fetches live data when `VITE_API_URL` is set, else falls back to demo. |
+| `database/migrations/005_marketplace_integrations.sql` | Dealer catalog (`dealer_products`) + billing integrations (`api_integrations`, `integration_events`). |
+| `backend/src/services/DealerDirectoryService.ts` | Marketplace — dealer/product search and catalog; shopkeepers order via `POST /v1/purchase-orders/from-catalog`. |
+| `backend/src/services/IntegrationService.ts` + `backend/src/events/` | External billing/POS webhook ingestion (HMAC, idempotent, FEFO) → live inventory; poll `/v1/inventory/live` or subscribe to the SSE stream. |
+| `web/src/screens/Marketplace.tsx` | Web Market tab — search wholesalers, browse catalog, place an order (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

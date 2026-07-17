@@ -143,22 +143,36 @@ Bluetooth printers (init, alignment, bold, GST tax block, native QR with a UPI p
 link, feed + cut), an **A4 PDF** bill (dependency-free writer, embeds the IRN when
 present), and a **WhatsApp** `wa.me` share link with a prefilled bill summary + PDF URL.
 
-**Webhook API for Tally / Vyapar / Marg ERP:**
+**Billing-system integration & live inventory** (migration
+[`005_marketplace_integrations.sql`](../database/migrations/005_marketplace_integrations.sql),
+[`IntegrationService`](../backend/src/services/IntegrationService.ts)) — connects an
+external POS/ERP billing system (Tally, Vyapar, Marg, or any counter software) so a
+consumer sale rung up there decrements ApnaKhata inventory in real time, giving the
+shopkeeper one live stock view across every till:
 
-| Endpoint | Method | Purpose |
-| --- | --- | --- |
-| `/v1/integrations/webhooks/sales` | POST | Push a completed retail sale (decrements inventory, writes `stock_movements`). |
-| `/v1/integrations/webhooks/invoices` | POST | Push a B2B purchase invoice (creates a `transactions_ledger` row). |
-| `/v1/integrations/webhooks/stock-sync` | POST | Bulk absolute stock reconciliation (nightly ERP sync). |
+- A shopkeeper registers an integration (`POST /v1/integrations`) and receives a public
+  `api_key` + a `secret` (shown once).
+- The billing system posts each sale to `POST /integrations/webhooks/sales` (mounted
+  outside the `/v1` service-key guard). Auth per the security contract below:
+  `X-Integration-Key`, `X-Signature` = hex HMAC-SHA256 of the **raw body** (constant-time
+  compared), `X-Timestamp` within ±5 min, and `X-Idempotency-Key` unique per event
+  (`integration_events` unique index → exact-once). Each line is consumed FEFO; a sale is
+  never rejected — if our count is behind it consumes to zero and reports the shortfall.
+- The shopkeeper live-tracks stock by polling `GET /v1/inventory/live` (current stock +
+  last movement per SKU) or subscribing to the **SSE** stream
+  `GET /v1/inventory/live/stream` (each sale pushes an `inventory` event via the in-process
+  event bus; back it with Redis pub/sub for multi-instance).
 
-Security contract for every webhook call:
+Planned companion webhooks (same security contract): `/invoices` (B2B purchase → ledger
+row) and `/stock-sync` (nightly absolute reconciliation). Rate limiting is a Redis token
+bucket per key; breaking payload changes mint `/v2/`.
 
-- **Auth:** per-integration API key (`X-Api-Key`) + HMAC-SHA256 of the raw body with a
-  per-integration secret (`X-Signature`), constant-time compared.
-- **Replay protection:** `X-Timestamp` must be within ±5 minutes; `X-Idempotency-Key`
-  is unique-indexed so retries are exact no-ops returning the original response.
-- **Rate limiting:** Redis token bucket per API key.
-- **Versioning:** URL-versioned (`/v1/`); breaking payload changes mint `/v2/`.
+**Dealer marketplace** ([`DealerDirectoryService`](../backend/src/services/DealerDirectoryService.ts)):
+distributors publish a catalog (`dealer_products`); a shopkeeper searches wholesalers by
+product / category / city (`GET /v1/dealers/search`, trigram-indexed on product name),
+browses a dealer's catalog, and orders via `POST /v1/purchase-orders/from-catalog` —
+prices and MOQ come from the catalog (not the client) and the order flows through the
+existing PO → goods-receipt → ledger pipeline. Surfaced in the web app's **Market** tab.
 
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
