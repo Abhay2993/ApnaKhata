@@ -39,6 +39,7 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/WarehouseService.ts` | Multi-location stock: godowns, FEFO transfers, per-location holdings. |
 | `backend/src/services/DistributorDemandService.ts` | Distributor-side rollup of retailer forecasts for upstream procurement planning. |
 | `mobile/src/api/client.ts` | Typed mobile API client (reorder, barcode lookup, stock-in, checkout). |
+| `backend/src/server.ts` + `backend/src/http/` | Express API gateway exposing every service under `/v1` — the routes the mobile/web clients target. `npm run build && DATABASE_URL=… npm start`. |
 | `mobile/src/screens/ScanScreen.tsx` | Camera barcode/QR scanner — billing cart and batch/expiry stock-in modes. |
 | `services/forecasting/forecast.py` | FastAPI + Prophet stock-forecasting microservice (Indian festival seasonality, safety-stock index, reorder recommendations). |
 | `services/forecasting/requirements.txt` | Python dependencies for the forecasting service. |
