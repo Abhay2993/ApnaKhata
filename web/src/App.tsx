@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <div className="stage">
-      <p className="stage-caption">ApnaKhata · Mobile App Preview (demo data)</p>
+      <p className="stage-caption">ApnaKhata · Mobile App Preview</p>
       <div className="phone">
         <div className="screen">{tab === 'DASHBOARD' ? <Dashboard /> : <Scan />}</div>
         <nav className="tabbar">

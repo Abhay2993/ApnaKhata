@@ -1,66 +1,94 @@
 /**
  * Dashboard — web port of mobile/src/screens/DashboardScreen.tsx.
- * Same design tokens, layout, and demo data; the one-tap reorder is
- * simulated client-side (pending → ordered) since the preview has no backend.
+ * Fetches the live dashboard from the API when VITE_API_URL is configured
+ * (the docker-compose stack); otherwise renders demo data so the standalone
+ * Vercel preview works with no backend. A LIVE/DEMO badge shows which.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+import {
+  Dashboard as DashboardData,
+  fetchDashboard,
+  isLiveConfigured,
+  reorderFromForecast,
+} from '../api';
 
 type RiskTier = 'PRIME' | 'SUBPRIME' | 'HIGH_RISK';
 type OrderState = 'idle' | 'pending' | 'ordered';
 
 interface StockAlert {
   id: string;
+  inventoryId?: string;
   productName: string;
   currentStock: number;
   unit: string;
-  daysUntilStockout: number;
+  daysUntilStockout: number | null;
   recommendedOrderQty: number;
   distributorName: string;
   trend: number[];
 }
 
-const credit = {
-  score: 782,
-  tier: 'PRIME' as RiskTier,
-  preApprovedLimit: 250000,
-  partnerBank: 'HDFC Bank',
+interface Credit {
+  score: number;
+  tier: RiskTier;
+  preApprovedLimit: number;
+  partnerBank: string;
+}
+
+interface CashFlow {
+  receivables: number;
+  payables: number;
+  todayCollections: number;
+}
+
+interface ViewModel {
+  businessName: string;
+  credit: Credit | null;
+  cashFlow: CashFlow;
+  stockAlerts: StockAlert[];
+}
+
+const DEMO: ViewModel = {
+  businessName: 'Gupta General Store',
+  credit: { score: 782, tier: 'PRIME', preApprovedLimit: 250000, partnerBank: 'HDFC Bank' },
+  cashFlow: { receivables: 184250, payables: 96400, todayCollections: 12750 },
+  stockAlerts: [
+    { id: '1', productName: 'Tata Salt 1kg', currentStock: 14, unit: 'PCS', daysUntilStockout: 2, recommendedOrderQty: 96, distributorName: 'Sharma Distributors', trend: [6, 8, 7, 9, 6, 11, 8, 10, 9, 12, 10, 13, 11, 12] },
+    { id: '2', productName: 'Fortune Sunflower Oil 1L', currentStock: 22, unit: 'PCS', daysUntilStockout: 5, recommendedOrderQty: 48, distributorName: 'Agarwal Trading Co.', trend: [3, 4, 4, 5, 3, 6, 4, 5, 5, 4, 6, 5, 4, 5] },
+    { id: '3', productName: 'Parle-G 800g Family Pack', currentStock: 35, unit: 'PCS', daysUntilStockout: 9, recommendedOrderQty: 60, distributorName: 'Sharma Distributors', trend: [4, 3, 5, 4, 4, 5, 3, 4, 5, 4, 3, 4, 5, 4] },
+  ],
 };
 
-const cashFlow = { receivables: 184250, payables: 96400, todayCollections: 12750 };
+// A gently varied sparkline seed so live alerts (no historical trend yet) still
+// render a line rather than a flat bar.
+const PLACEHOLDER_TREND = [5, 6, 5, 7, 6, 8, 6, 7, 8, 7, 9, 8, 7, 9];
 
-const stockAlerts: StockAlert[] = [
-  {
-    id: '1',
-    productName: 'Tata Salt 1kg',
-    currentStock: 14,
-    unit: 'PCS',
-    daysUntilStockout: 2,
-    recommendedOrderQty: 96,
-    distributorName: 'Sharma Distributors',
-    trend: [6, 8, 7, 9, 6, 11, 8, 10, 9, 12, 10, 13, 11, 12],
-  },
-  {
-    id: '2',
-    productName: 'Fortune Sunflower Oil 1L',
-    currentStock: 22,
-    unit: 'PCS',
-    daysUntilStockout: 5,
-    recommendedOrderQty: 48,
-    distributorName: 'Agarwal Trading Co.',
-    trend: [3, 4, 4, 5, 3, 6, 4, 5, 5, 4, 6, 5, 4, 5],
-  },
-  {
-    id: '3',
-    productName: 'Parle-G 800g Family Pack',
-    currentStock: 35,
-    unit: 'PCS',
-    daysUntilStockout: 9,
-    recommendedOrderQty: 60,
-    distributorName: 'Sharma Distributors',
-    trend: [4, 3, 5, 4, 4, 5, 3, 4, 5, 4, 3, 4, 5, 4],
-  },
-];
+function toViewModel(d: DashboardData): ViewModel {
+  return {
+    businessName: d.businessName,
+    credit: d.credit
+      ? {
+          score: d.credit.score,
+          tier: d.credit.tier,
+          preApprovedLimit: d.credit.preApprovedLimit,
+          partnerBank: d.credit.partnerBank,
+        }
+      : null,
+    cashFlow: d.cashFlow,
+    stockAlerts: d.stockAlerts.map((a) => ({
+      id: a.inventoryId,
+      inventoryId: a.inventoryId,
+      productName: a.productName,
+      currentStock: a.currentStock,
+      unit: a.unit,
+      daysUntilStockout: a.daysUntilStockout,
+      recommendedOrderQty: a.recommendedOrderQty,
+      distributorName: a.distributorName,
+      trend: PLACEHOLDER_TREND,
+    })),
+  };
+}
 
 const inr = (value: number): string =>
   new Intl.NumberFormat('en-IN', {
@@ -69,8 +97,11 @@ const inr = (value: number): string =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const urgencyColor = (days: number): string =>
-  days <= 3 ? 'var(--danger)' : days <= 7 ? 'var(--gold-bright)' : 'var(--slate)';
+const urgencyColor = (days: number | null): string =>
+  days === null ? 'var(--slate)' : days <= 3 ? 'var(--danger)' : days <= 7 ? 'var(--gold-bright)' : 'var(--slate)';
+
+const depletionText = (days: number | null): string =>
+  days === null ? 'Below reorder threshold' : `Depletes in ${days} ${days === 1 ? 'day' : 'days'}`;
 
 /** 240° gold gauge, identical geometry to the mobile ScoreArc. */
 function ScoreArc({ score }: { score: number }) {
@@ -134,47 +165,75 @@ function Sparkline({ data, width = 72, height = 24 }: { data: number[]; width?: 
 }
 
 export default function Dashboard() {
+  const [vm, setVm] = useState<ViewModel>(DEMO);
+  const [mode, setMode] = useState<'demo' | 'live' | 'loading'>(isLiveConfigured() ? 'loading' : 'demo');
   const [orderStates, setOrderStates] = useState<Record<string, OrderState>>({});
 
-  const handleReorder = (id: string) => {
-    setOrderStates((prev) => ({ ...prev, [id]: 'pending' }));
-    // Demo mode: the live app calls POST /v1/purchase-orders/from-forecast here.
-    window.setTimeout(() => {
-      setOrderStates((prev) => ({ ...prev, [id]: 'ordered' }));
-    }, 900);
+  useEffect(() => {
+    if (!isLiveConfigured()) return;
+    const ctrl = new AbortController();
+    fetchDashboard(ctrl.signal)
+      .then((d) => {
+        setVm(toViewModel(d));
+        setMode('live');
+      })
+      .catch(() => setMode('demo')); // API unreachable → keep demo data
+    return () => ctrl.abort();
+  }, []);
+
+  const handleReorder = (item: StockAlert) => {
+    setOrderStates((prev) => ({ ...prev, [item.id]: 'pending' }));
+    if (mode === 'live' && item.inventoryId) {
+      reorderFromForecast(item.inventoryId)
+        .then(() => setOrderStates((prev) => ({ ...prev, [item.id]: 'ordered' })))
+        .catch(() => setOrderStates((prev) => ({ ...prev, [item.id]: 'idle' })));
+    } else {
+      window.setTimeout(() => setOrderStates((prev) => ({ ...prev, [item.id]: 'ordered' })), 900);
+    }
   };
+
+  const { credit, cashFlow, stockAlerts } = vm;
 
   return (
     <>
       <header className="header">
         <span className="wordmark">ApnaKhata</span>
-        <span className="header-context">Gupta General Store</span>
+        <span className="header-context">
+          {vm.businessName}
+          <span className={`mode-badge ${mode}`}>{mode === 'live' ? 'LIVE' : mode === 'loading' ? '…' : 'DEMO'}</span>
+        </span>
       </header>
 
       <section className="card">
         <div className="passport-head">
           <span className="card-label">ApnaKhata Credit Passport</span>
-          <span className="tier-chip">{credit.tier}</span>
+          {credit && <span className="tier-chip">{credit.tier}</span>}
         </div>
-        <div className="passport-body">
-          <div className="arc-wrap">
-            <ScoreArc score={credit.score} />
-            <div className="arc-score">
-              <span className="value">{credit.score}</span>
-              <span className="of">OF 900</span>
+        {credit ? (
+          <div className="passport-body">
+            <div className="arc-wrap">
+              <ScoreArc score={credit.score} />
+              <div className="arc-score">
+                <span className="value">{credit.score}</span>
+                <span className="of">OF 900</span>
+              </div>
+            </div>
+            <div className="loan-col">
+              <span className="stat-label">Working capital</span>
+              <div className="amount">{inr(credit.preApprovedLimit)}</div>
+              <div className="status">
+                {credit.tier === 'PRIME' ? 'Pre-approved' : credit.tier === 'SUBPRIME' ? 'Under review' : 'Building eligibility'} · {credit.partnerBank}
+              </div>
+              <button type="button" className="btn-outline">
+                EXPORT PASSPORT
+              </button>
             </div>
           </div>
-          <div className="loan-col">
-            <span className="stat-label">Working capital</span>
-            <div className="amount">{inr(credit.preApprovedLimit)}</div>
-            <div className="status">
-              Pre-approved · {credit.partnerBank}
-            </div>
-            <button type="button" className="btn-outline">
-              EXPORT PASSPORT
-            </button>
+        ) : (
+          <div className="status" style={{ padding: '18px 0' }}>
+            No credit score yet — trade activity builds your passport.
           </div>
-        </div>
+        )}
       </section>
 
       <section className="card">
@@ -200,6 +259,8 @@ export default function Dashboard() {
         <span className="section-note">Forecast · next 45 days</span>
       </div>
 
+      {stockAlerts.length === 0 && <div className="cart-empty">No stock alerts — inventory looks healthy.</div>}
+
       {stockAlerts.map((item) => {
         const state = orderStates[item.id] ?? 'idle';
         return (
@@ -216,15 +277,13 @@ export default function Dashboard() {
             <div className="alert-bottom">
               <span className="urgency" style={{ color: urgencyColor(item.daysUntilStockout) }}>
                 <span className="dot" style={{ background: urgencyColor(item.daysUntilStockout) }} />
-                {state === 'ordered'
-                  ? `PO sent to ${item.distributorName}`
-                  : `Depletes in ${item.daysUntilStockout} ${item.daysUntilStockout === 1 ? 'day' : 'days'}`}
+                {state === 'ordered' ? `PO sent to ${item.distributorName}` : depletionText(item.daysUntilStockout)}
               </span>
               <button
                 type="button"
                 className={`btn-order ${state}`}
                 disabled={state !== 'idle'}
-                onClick={() => handleReorder(item.id)}
+                onClick={() => handleReorder(item)}
               >
                 {state === 'pending'
                   ? 'PLACING…'

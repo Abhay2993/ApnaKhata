@@ -17,6 +17,23 @@ declare module 'express-serve-static-core' {
 }
 
 const API_KEY = process.env.APNAKHATA_API_KEY ?? 'dev-key';
+const CORS_ORIGIN = process.env.APNAKHATA_CORS_ORIGIN ?? '*';
+
+/**
+ * Permit browser clients (the web UI) to call the API cross-origin. Set
+ * APNAKHATA_CORS_ORIGIN to the deployed web origin in production; defaults to
+ * '*' for local/demo use.
+ */
+export function cors(req: Request, res: Response, next: NextFunction): void {
+  res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, x-user-id');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+}
 
 /** Reject calls without the service API key (all routes). */
 export function requireApiKey(req: Request, res: Response, next: NextFunction): void {

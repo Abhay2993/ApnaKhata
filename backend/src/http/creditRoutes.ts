@@ -10,6 +10,7 @@ import { CreditHistoryService } from '../services/CreditHistoryService';
 import { CreditPassportService } from '../services/CreditPassportService';
 import { CreditScoreEvaluator } from '../services/CreditScoreEvaluator';
 import { CreditSimulatorService } from '../services/CreditSimulatorService';
+import { DashboardService } from '../services/DashboardService';
 import { DistributorDemandService } from '../services/DistributorDemandService';
 import { LenderSubmissionService } from '../services/LenderSubmissionService';
 import { requireUser, wrap } from './middleware';
@@ -21,10 +22,20 @@ export interface CreditServices {
   simulator: CreditSimulatorService;
   history: CreditHistoryService;
   lenders: LenderSubmissionService;
+  dashboard: DashboardService;
 }
 
 export function creditRoutes(s: CreditServices): Router {
   const r = Router();
+
+  // --- Dashboard read model (one call for the home screen) ----------------
+  r.get(
+    '/dashboard',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.dashboard.getDashboard(req.userId as string));
+    }),
+  );
 
   /** Recompute and return the caller's credit profile. */
   r.get(

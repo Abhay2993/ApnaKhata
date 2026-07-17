@@ -4,6 +4,43 @@ A premium B2B ledger, billing, and intelligent inventory ecosystem for the India
 supply chain — connecting **Distributors** (wholesalers) and **Shop Owners** (kirana /
 retailers) on a single, bank-grade financial rail.
 
+## Run the whole app (one command)
+
+Requires Docker.
+
+```bash
+git clone https://github.com/abhay2993/apnakhata && cd apnakhata
+docker compose up --build
+```
+
+This starts PostgreSQL, **applies all migrations and seeds demo data**, runs the API
+gateway, the batch worker, and the web UI. Then open:
+
+- **Web app** → http://localhost:5173 — the dashboard shows a green **LIVE** badge and
+  real data served by the API (demo login `gupta@demo.in`).
+- **API** → http://localhost:8080/health, all routes under `/v1` (see
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)).
+
+The API key (`demo-key`) and demo user are baked in for local use only. Config lives in
+[`docker-compose.yml`](docker-compose.yml) / [`.env.example`](.env.example).
+
+### Run pieces individually (no Docker)
+
+```bash
+# 1. Postgres running locally, then:
+cd backend && npm install && npm run build
+DATABASE_URL=postgres://…/apnakhata npm run migrate   # schema + all migrations
+DATABASE_URL=postgres://…/apnakhata npm run seed      # demo data
+DATABASE_URL=postgres://…/apnakhata APNAKHATA_API_KEY=demo-key npm start   # API on :8080
+DATABASE_URL=postgres://…/apnakhata npm run worker    # daily jobs (separate process)
+
+# 2. Web UI pointed at the API:
+cd ../web && npm install
+VITE_API_URL=http://localhost:8080 VITE_API_KEY=demo-key npm run dev   # :5173
+```
+
+Leave `VITE_API_URL` unset to run the web UI in standalone demo mode (what Vercel builds).
+
 ## App preview
 
 **Live on Vercel:** this repo's Vercel connection builds [`web/`](web/) — an
@@ -41,6 +78,10 @@ directly in the repo. To run the real mobile app, see
 | `mobile/src/api/client.ts` | Typed mobile API client (reorder, barcode lookup, stock-in, checkout). |
 | `backend/src/server.ts` + `backend/src/http/` | Express API gateway exposing every service under `/v1` — the routes the mobile/web clients target. `npm run build && DATABASE_URL=… npm start`. |
 | `backend/src/worker.ts` + `backend/src/jobs/` | Scheduled daily jobs (interest accrual, expiry write-off, nightly credit refresh, payment reminders) on a dependency-free scheduler. `DATABASE_URL=… TZ=Asia/Kolkata npm run worker`. |
+| `backend/src/db/migrate.ts` + `seed.ts` | Idempotent migration runner (tracked in `schema_migrations`) and demo seed. `npm run migrate && npm run seed`. |
+| `backend/src/services/DashboardService.ts` | One-call home-screen read model (credit summary, cash flow, forecast stock alerts) behind `GET /v1/dashboard`. |
+| `docker-compose.yml` + `backend/Dockerfile` + `web/Dockerfile` | Full stack in one command — db, migrate+seed, api, worker, live web UI. |
+| `web/src/api.ts` | Web API client; the dashboard fetches live data when `VITE_API_URL` is set, else falls back to demo. |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

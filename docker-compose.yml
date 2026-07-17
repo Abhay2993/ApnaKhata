@@ -1,0 +1,87 @@
+# ApnaKhata — full stack in one command:  docker compose up --build
+#
+#   db      PostgreSQL 16
+#   migrate one-shot: applies schema + migrations, then seeds demo data
+#   api     Express gateway on http://localhost:8080  (all /v1 routes)
+#   worker  daily batch jobs (accrual, expiry, credit refresh, reminders)
+#   web     the app UI on http://localhost:5173  (live, backed by the API)
+#
+# Then open http://localhost:5173 — the dashboard shows a LIVE badge and real
+# seeded data. Demo API key + user are baked in for local use only.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: apnakhata
+      POSTGRES_PASSWORD: apnakhata
+      POSTGRES_DB: apnakhata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apnakhata"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: sh -c "node dist/db/migrate.js && node dist/db/seed.js"
+    environment:
+      DATABASE_URL: postgres://apnakhata:apnakhata@db:5432/apnakhata
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: node dist/server.js
+    environment:
+      DATABASE_URL: postgres://apnakhata:apnakhata@db:5432/apnakhata
+      PORT: "8080"
+      APNAKHATA_API_KEY: demo-key
+      APNAKHATA_CORS_ORIGIN: "*"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: node dist/worker.js
+    environment:
+      DATABASE_URL: postgres://apnakhata:apnakhata@db:5432/apnakhata
+      TZ: Asia/Kolkata
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8080
+        VITE_API_KEY: demo-key
+        VITE_DEMO_USER_ID: "22222222-2222-2222-2222-222222222222"
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

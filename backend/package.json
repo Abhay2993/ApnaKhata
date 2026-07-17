@@ -8,6 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "worker": "node dist/worker.js",
+    "migrate": "node dist/db/migrate.js",
+    "seed": "node dist/db/seed.js",
     "dev": "tsc && node dist/server.js",
     "typecheck": "tsc --noEmit"
   },

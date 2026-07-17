@@ -22,6 +22,7 @@ import { ReceiptService } from './services/ReceiptService';
 import { CreditPassportService } from './services/CreditPassportService';
 import { CreditScoreEvaluator } from './services/CreditScoreEvaluator';
 import { CreditSimulatorService } from './services/CreditSimulatorService';
+import { DashboardService } from './services/DashboardService';
 import { DisputeService } from './services/DisputeService';
 import { DistributorDemandService } from './services/DistributorDemandService';
 import { InterestAccrualService } from './services/InterestAccrualService';
@@ -35,10 +36,11 @@ import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
-import { errorHandler, requireApiKey } from './http/middleware';
+import { cors, errorHandler, requireApiKey } from './http/middleware';
 
 export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): Express {
   const app = express();
+  app.use(cors);
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/health', (_req, res) => {
@@ -75,6 +77,7 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       simulator: new CreditSimulatorService(db),
       history: new CreditHistoryService(db),
       lenders: new LenderSubmissionService(db, passports),
+      dashboard: new DashboardService(db),
     }),
   );
   const gst = new GstInvoiceService(db);
