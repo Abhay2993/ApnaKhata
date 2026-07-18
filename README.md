@@ -46,17 +46,25 @@ Leave `VITE_API_URL` unset to run the web UI in standalone demo mode (what Verce
 **Live on Vercel:** this repo's Vercel connection builds [`web/`](web/) — an
 interactive browser preview of the app, configured via the root
 [`vercel.json`](vercel.json). Push to the connected branch and open your Vercel
-deployment URL to use it. Five tabs cover the whole product:
+deployment URL to use it. Six tabs cover the whole product:
 
 - **Home** — credit passport, cash flow, business-health snapshot, forecast stock alerts + one-tap reorder.
+- **Khata** — customer udhaar ledger with **voice + vernacular entry**: speak or type
+  "Ramesh ko paanch sau udhaar" and it's parsed into a ledger entry. A language switcher
+  drives the UI in Hindi, Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada (English fallback).
 - **Credit** — passport score + pillars, what-if simulator, score trend, BNPL financing, bank pre-approvals.
 - **Market** — search wholesalers, browse catalog with trade schemes, place an order.
 - **GST** — filing summary (GSTR-1/3B), e-invoicing, GSTR-2B input-tax-credit matching, e-way bills.
 - **More** — Analytics (profit/margins/dead-stock/health), Ledger (bills/reminders/EMI/disputes), Live Inventory, Scan & Bill.
 
+The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
+a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
+message; a customer texts to check their outstanding balance (webhook at
+`/integrations/webhooks/whatsapp`).
+
 Every screen runs **live against the API** when `VITE_API_URL` is set (the docker-compose
 stack), and on **demo data** otherwise (the standalone Vercel build) — a LIVE/DEMO badge
-shows which.
+shows which. Voice uses the browser's Web Speech API with a typed fallback.
 
 GitHub itself can't execute a React Native app, so these rendered previews
 (mirroring the real components in `mobile/src/screens/`) are also embedded
@@ -103,6 +111,11 @@ directly in the repo. To run the real mobile app, see
 | `database/migrations/007_analytics_schemes.sql` | `dealer_schemes` (trade schemes); analytics is read-only over existing data. |
 | `backend/src/services/AnalyticsService.ts` | Profit/margin per product, fastest movers, dead stock, and a business-health score (DIO/DSO/DPO, cash-conversion cycle, runway) — `GET /v1/analytics/profit` \| `/health`. |
 | `backend/src/services/SchemeService.ts` | Distributor trade schemes — volume slabs, buy-x-get-y, flat-percent — applied at quote/order time in the marketplace. |
+| `database/migrations/008_customers_voice.sql` | Customer khata — `customers`, `customer_ledger_entries` (source VOICE/MANUAL/WHATSAPP), `v_customer_balances` view. |
+| `backend/src/nlp/CommandParser.ts` | Dependency-free NLP: romanised-Hindi number words ("paanch sau", "dhai sau", "do hazaar"), credit/payment intent, party extraction, order parsing. |
+| `backend/src/services/CustomerLedgerService.ts` | Consumer-udhaar ledger with fuzzy customer matching; `recordFromVoice` interprets an utterance and posts the entry — `POST /v1/voice/ledger`, `/v1/customers`. |
+| `backend/src/services/WhatsAppBotService.ts` + `backend/src/whatsapp/` | Two-way WhatsApp bot: retailer order→PO, shop-owner khata entry, customer balance lookup, routed by which business owns the receiving number. |
+| `web/src/i18n.tsx` + `web/src/screens/Khata.tsx` | Vernacular UI (8 languages) + the Khata screen — Web Speech voice capture, typed fallback, live/demo customer balances. |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

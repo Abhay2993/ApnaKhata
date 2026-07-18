@@ -165,6 +165,36 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.distributor],
   );
 
+  // Customer khata (consumer udhaar) for the primary shopkeeper — the ledger
+  // that voice + WhatsApp entries land in. Ramesh carries a phone so the
+  // WhatsApp balance-lookup demo works.
+  if (Number((await db.query(`SELECT COUNT(*) n FROM customers WHERE owner_id = $1`, [DEMO.shopkeeper])).rows[0].n) === 0) {
+    const customers: Record<string, string> = {};
+    for (const [name, phone] of [['Ramesh Kumar', '+919812345678'], ['Suresh Yadav', '+919812345679'], ['Anita Sharma', null]] as [string, string | null][]) {
+      const { rows } = await db.query<{ id: string }>(
+        `INSERT INTO customers (owner_id, name, phone) VALUES ($1, $2, $3) RETURNING id`,
+        [DEMO.shopkeeper, name, phone],
+      );
+      customers[name] = rows[0].id;
+    }
+    // A few entries so balances are non-trivial (positive = customer owes shop).
+    const entries: [string, 'CREDIT' | 'PAYMENT', number, string][] = [
+      ['Ramesh Kumar', 'CREDIT', 500, 'VOICE'],
+      ['Ramesh Kumar', 'CREDIT', 250, 'MANUAL'],
+      ['Ramesh Kumar', 'PAYMENT', 300, 'WHATSAPP'],
+      ['Suresh Yadav', 'CREDIT', 1200, 'MANUAL'],
+      ['Suresh Yadav', 'PAYMENT', 1200, 'WHATSAPP'],
+      ['Anita Sharma', 'CREDIT', 780, 'VOICE'],
+    ];
+    for (const [name, type, amount, source] of entries) {
+      await db.query(
+        `INSERT INTO customer_ledger_entries (customer_id, owner_id, entry_type, amount, source)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [customers[name], DEMO.shopkeeper, type, amount, source],
+      );
+    }
+  }
+
   // Initial credit score so the dashboard has a number on first load.
   await new CreditScoreEvaluator(db).evaluate(DEMO.shopkeeper);
 

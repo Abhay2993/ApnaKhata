@@ -211,6 +211,46 @@ ledger):
   dead-stock 15%) with a rating (STRONG / STABLE / WATCH / AT_RISK) and plain-language
   advice ("stock is turning slowly — trim slow movers").
 
+### 2.6 Voice, Vernacular & WhatsApp-First Entry
+
+The fastest ledger entry is the one you speak. Migration `008` adds the **customer khata**
+the B2B ledger didn't cover — the consumer-udhaar book every kirana keeps: `customers`,
+`customer_ledger_entries` (with a `source` of VOICE / MANUAL / WHATSAPP and the original
+`transcript` for audit), and a `v_customer_balances` view where a positive balance means
+the customer owes the shop.
+
+- **NLP command parser** ([`nlp/CommandParser.ts`](../backend/src/nlp/CommandParser.ts)) —
+  a dependency-free intent engine. Speech-to-text is a transport concern (on-device Web
+  Speech API, or Bhashini / Google STT) that hands over a transcript; the parser turns
+  *"Ramesh ko paanch sau udhaar"* into `{ RECORD_CREDIT, Ramesh, 500 }`. It understands
+  romanised-Hindi number words including fractional prefixes (`sau`=100, `hazaar`=1000,
+  `lakh`=100000, `dhai`=2.5, `derh`=1.5, `sava`=1.25), the `2k` shorthand, and disambiguates
+  credit vs payment from keywords (`udhaar`/`likho` vs `jama`/`mile`) and postpositions
+  (`ko`→credit, `se`/`ne`→payment). `parseOrder` splits *"10 salt aur 5 oil bhejo"* into line
+  items.
+- **Customer ledger** ([`CustomerLedgerService`](../backend/src/services/CustomerLedgerService.ts))
+  — `recordFromVoice` parses and posts in one call, resolving the customer with forgiving
+  name matching so spoken "Ramesh" hits the stored "Ramesh Kumar", creating a new customer
+  only on genuine first mention. Low-confidence utterances are returned un-posted with a
+  reason so the client can confirm. Exposed at `POST /v1/voice/ledger` and the
+  `/v1/customers` CRUD.
+- **Vernacular UI** ([`web/src/i18n.tsx`](../web/src/i18n.tsx)) — a dependency-free
+  translation layer. English is the source of truth; Hindi, Marathi, Gujarati, Bengali,
+  Tamil, Telugu and Kannada overlay the high-visibility chrome and fall back to English for
+  anything unlocalised, so the UI is never blank. The chosen language also selects the Web
+  Speech recognition locale (`hi-IN`, `ta-IN`, …). The **Khata** screen captures voice via
+  `webkitSpeechRecognition` with a typed fallback and runs a trimmed client-side parser in
+  demo mode.
+- **WhatsApp-first bot** ([`WhatsAppBotService`](../backend/src/services/WhatsAppBotService.ts))
+  — one inbound handler (`/integrations/webhooks/whatsapp`, mounted outside the `/v1` guard,
+  with Meta's `hub.challenge` verification) routes by the business that owns the receiving
+  number: a **distributor** inbox parses an order and raises a PO against its catalog
+  (matching products, honouring MOQ); a **shopkeeper** inbox posts a khata entry when the
+  sender is the owner, or replies with the outstanding balance when the sender is a customer.
+  Outbound replies go through an injected `WhatsAppSender` (a WABA / Gupshup adapter in
+  production; a recording stub in the sandbox). Production use needs an approved WhatsApp
+  Business Account and message templates.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

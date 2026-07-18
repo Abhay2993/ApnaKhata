@@ -13,11 +13,14 @@ import express, { Express } from 'express';
 import { Pool } from 'pg';
 
 import { ConsoleNotifier, Notifier } from './notifications/Notifier';
+import { ConsoleWhatsAppSender, WhatsAppSender } from './whatsapp/WhatsAppSender';
 import { AnalyticsService } from './services/AnalyticsService';
 import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
+import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { WhatsAppBotService } from './services/WhatsAppBotService';
 import { EInvoiceService } from './services/EInvoiceService';
 import { EwayBillService } from './services/EwayBillService';
 import { GstInvoiceService } from './services/GstInvoiceService';
@@ -42,6 +45,7 @@ import { WarehouseService } from './services/WarehouseService';
 import { analyticsRoutes } from './http/analyticsRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
+import { customerRoutes } from './http/customerRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
 import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
@@ -50,7 +54,11 @@ import { cors, errorHandler, requireApiKey } from './http/middleware';
 
 const SERVICE_API_KEY = process.env.APNAKHATA_API_KEY ?? 'dev-key';
 
-export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): Express {
+export function buildApp(
+  db: Pool,
+  notifier: Notifier = new ConsoleNotifier(),
+  whatsapp: WhatsAppSender = new ConsoleWhatsAppSender(),
+): Express {
   const app = express();
   app.use(cors);
   // Capture the exact raw body so webhook HMAC verification is byte-accurate.
@@ -61,10 +69,12 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
   });
 
   const integrations = new IntegrationService(db);
+  const customers = new CustomerLedgerService(db);
+  const whatsappBot = new WhatsAppBotService(db, whatsapp, new PurchaseOrderService(db), customers);
 
-  // External billing webhook — authenticates via integration key + HMAC, so it
-  // is mounted BEFORE the /v1 service-key guard.
-  app.use('/integrations/webhooks', webhookRoutes(integrations));
+  // External webhooks (billing HMAC + WhatsApp) — authenticate on their own, so
+  // they are mounted BEFORE the /v1 service-key guard.
+  app.use('/integrations/webhooks', webhookRoutes(integrations, whatsappBot));
   // Live inventory SSE — query-param auth (EventSource can't set headers), so
   // it too must sit before the header-only service-key guard.
   app.get('/v1/inventory/live/stream', liveInventoryStreamHandler(SERVICE_API_KEY));
@@ -124,6 +134,7 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
     }),
   );
   app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
+  app.use('/v1', customerRoutes(customers));
 
   app.use(errorHandler);
   return app;

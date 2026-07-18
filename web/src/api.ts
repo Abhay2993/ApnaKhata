@@ -150,3 +150,33 @@ export async function orderFromCatalog(
   }
   return (await res.json()) as { poNumber: string; totalAmount: number };
 }
+
+// --- Customer khata (voice + vernacular) ---
+export interface CustomerBalance {
+  id: string;
+  name: string;
+  phone: string | null;
+  balance: number;
+  lastActivity: string | null;
+}
+
+export interface VoiceResult {
+  command: {
+    intent: 'RECORD_CREDIT' | 'RECORD_PAYMENT' | 'UNKNOWN';
+    party: string | null;
+    amount: number | null;
+    confidence: 'high' | 'medium' | 'low';
+    transcript: string;
+  };
+  posted: boolean;
+  reason?: string;
+  result?: { customer: CustomerBalance; entry: { entryType: 'CREDIT' | 'PAYMENT'; amount: number } };
+}
+
+export async function listCustomers(): Promise<CustomerBalance[] | null> {
+  return apiGet<CustomerBalance[]>('/v1/customers');
+}
+
+export async function recordVoiceLedger(transcript: string): Promise<VoiceResult | null> {
+  return apiPost<VoiceResult>('/v1/voice/ledger', { transcript });
+}
