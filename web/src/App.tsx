@@ -1,43 +1,45 @@
 /**
- * ApnaKhata — Web preview shell
- * -----------------------------
- * Browser rendering of the mobile app for Vercel: the two shipped screens
- * inside a phone frame, mirroring mobile/App.tsx's tab shell. Runs on demo
- * data (no backend); interactions are simulated client-side.
+ * ApnaKhata — Web preview shell.
+ * Five primary tabs (Home, Credit, Market, GST, More); More holds Analytics,
+ * Ledger, Live Inventory, and Scan & Bill. Every screen runs live against the
+ * API when VITE_API_URL is set, else on demo data.
  */
 
 import { useState } from 'react';
 
+import Compliance from './screens/Compliance';
+import Credit from './screens/Credit';
 import Dashboard from './screens/Dashboard';
 import Marketplace from './screens/Marketplace';
-import Scan from './screens/Scan';
+import More from './screens/More';
 
-type Tab = 'DASHBOARD' | 'MARKET' | 'SCAN';
+type Tab = 'HOME' | 'CREDIT' | 'MARKET' | 'GST' | 'MORE';
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'DASHBOARD', label: 'HOME' },
+  { key: 'HOME', label: 'HOME' },
+  { key: 'CREDIT', label: 'CREDIT' },
   { key: 'MARKET', label: 'MARKET' },
-  { key: 'SCAN', label: 'SCAN' },
+  { key: 'GST', label: 'GST' },
+  { key: 'MORE', label: 'MORE' },
 ];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('DASHBOARD');
+  const [tab, setTab] = useState<Tab>('HOME');
 
   return (
     <div className="stage">
       <p className="stage-caption">ApnaKhata · Mobile App Preview</p>
       <div className="phone">
         <div className="screen">
-          {tab === 'DASHBOARD' ? <Dashboard /> : tab === 'MARKET' ? <Marketplace /> : <Scan />}
+          {tab === 'HOME' && <Dashboard />}
+          {tab === 'CREDIT' && <Credit />}
+          {tab === 'MARKET' && <Marketplace />}
+          {tab === 'GST' && <Compliance />}
+          {tab === 'MORE' && <More />}
         </div>
         <nav className="tabbar">
           {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              className={tab === key ? 'active' : ''}
-              onClick={() => setTab(key)}
-            >
+            <button key={key} type="button" className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>
               <span className="bar" />
               {label}
             </button>

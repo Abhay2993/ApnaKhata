@@ -44,9 +44,19 @@ Leave `VITE_API_URL` unset to run the web UI in standalone demo mode (what Verce
 ## App preview
 
 **Live on Vercel:** this repo's Vercel connection builds [`web/`](web/) — an
-interactive browser preview of the app (same screens, design tokens, and demo
-data as the mobile code) configured via the root [`vercel.json`](vercel.json).
-Push to the connected branch and open your Vercel deployment URL to use it.
+interactive browser preview of the app, configured via the root
+[`vercel.json`](vercel.json). Push to the connected branch and open your Vercel
+deployment URL to use it. Five tabs cover the whole product:
+
+- **Home** — credit passport, cash flow, business-health snapshot, forecast stock alerts + one-tap reorder.
+- **Credit** — passport score + pillars, what-if simulator, score trend, BNPL financing, bank pre-approvals.
+- **Market** — search wholesalers, browse catalog with trade schemes, place an order.
+- **GST** — filing summary (GSTR-1/3B), e-invoicing, GSTR-2B input-tax-credit matching, e-way bills.
+- **More** — Analytics (profit/margins/dead-stock/health), Ledger (bills/reminders/EMI/disputes), Live Inventory, Scan & Bill.
+
+Every screen runs **live against the API** when `VITE_API_URL` is set (the docker-compose
+stack), and on **demo data** otherwise (the standalone Vercel build) — a LIVE/DEMO badge
+shows which.
 
 GitHub itself can't execute a React Native app, so these rendered previews
 (mirroring the real components in `mobile/src/screens/`) are also embedded

@@ -254,6 +254,21 @@ export default function Dashboard() {
         </div>
       </section>
 
+      <section className="card">
+        <span className="card-label">Business Health</span>
+        <div className="cash-grid" style={{ marginTop: 8 }}>
+          <div>
+            <span className="stat-label">Health score</span>
+            <div className="stat-value gold">72<span style={{ fontSize: 12, color: 'var(--slate)' }}>/100 · Stable</span></div>
+          </div>
+          <div>
+            <span className="stat-label">Gross margin</span>
+            <div className="stat-value">17.3%</div>
+          </div>
+        </div>
+        <div className="advice" style={{ marginTop: 12 }}>▸ Open the Analytics tab for margins, fastest movers, and dead stock.</div>
+      </section>
+
       <div className="section-head">
         <span className="card-label">Stock Alerts</span>
         <span className="section-note">Forecast · next 45 days</span>

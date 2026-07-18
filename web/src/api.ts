@@ -44,9 +44,33 @@ const USER_ID =
   (import.meta.env.VITE_DEMO_USER_ID as string | undefined) ?? '22222222-2222-2222-2222-222222222222';
 
 export const isLiveConfigured = (): boolean => Boolean(API_URL);
+export const demoUserId = (): string => USER_ID;
 
 function headers(): HeadersInit {
   return { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'x-user-id': USER_ID };
+}
+
+/** Generic GET; returns null (rather than throwing) so screens can fall back to demo. */
+export async function apiGet<T>(path: string): Promise<T | null> {
+  if (!API_URL) return null;
+  try {
+    const res = await fetch(`${API_URL}${path}`, { headers: headers() });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function apiPost<T>(path: string, body: unknown): Promise<T | null> {
+  if (!API_URL) return null;
+  try {
+    const res = await fetch(`${API_URL}${path}`, { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchDashboard(signal?: AbortSignal): Promise<Dashboard> {
