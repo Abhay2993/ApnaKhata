@@ -136,6 +136,19 @@ services under `backend/src/services/`) all build on `apply_payment_fifo()`:
   real IRN derivation: SHA-256 over GSTIN + FY + doc-type + doc-no). Idempotent per
   invoice, turnover-threshold gated (₹5 cr), with 24-hour cancellation. Real GSP/NIC
   adapters implement the same interface.
+- **GSTR-2B input-tax-credit matching** (migration
+  [`006_bnpl_itc_eway.sql`](../database/migrations/006_bnpl_itc_eway.sql),
+  [`Gstr2bReconciliationService`](../backend/src/services/Gstr2bReconciliationService.ts))
+  — the biggest ITC leak is a purchase that doesn't match what the supplier filed. The
+  GSTR-2B is imported (`gstr2b_records`) and matched against the buyer's purchase book
+  (inward B2B invoices with GST from `invoice_line_items`) on (supplier GSTIN, invoice
+  no.), classifying each line **MATCHED / MISMATCH / MISSING_IN_2B / MISSING_IN_BOOKS**
+  and quantifying **eligible** ITC vs **at-risk** ITC (in the book, supplier hasn't filed)
+  vs unrecorded credit — so nothing is silently lost.
+- **E-way bills** — [`EwayBillService`](../backend/src/services/EwayBillService.ts) builds
+  the payload from a GST invoice and mints a 12-digit e-way bill via a pluggable
+  [`EwbGateway`](../backend/src/irp/EwbGateway.ts) for consignments above ₹50k, with the
+  portal's validity rule (1 day per 200 km). Idempotent per invoice; cancellable within 24h.
 
 **Thermal printing & receipts** — [`ReceiptService`](../backend/src/services/ReceiptService.ts)
 renders three artifacts from an invoice: raw **ESC/POS** byte streams for 58 mm/80 mm
@@ -267,6 +280,15 @@ from a real evaluation.
   [`LenderGateway`](../backend/src/lenders/LenderGateway.ts) to a partner bank's
   pre-approval sandbox (throughput-based sizing gated by tier), recording the decision
   in `lender_submissions`. Real SBI/ICICI/HDFC adapters implement the same interface.
+- **Embedded BNPL / working-capital financing** (migration
+  [`006_bnpl_itc_eway.sql`](../database/migrations/006_bnpl_itc_eway.sql),
+  [`BnplService`](../backend/src/services/BnplService.ts)) — point-of-purchase credit: a
+  shopkeeper finances an outstanding distributor bill and the partner NBFC settles the
+  distributor immediately (a `BNPL` payment clears the invoice through the ledger); the
+  shopkeeper repays the NBFC over 15/30/60 days for a flat fee. Eligibility, limit
+  (fraction of trailing trade throughput, capped by tier) and fee all key off the same
+  `credit_score_metrics` that power the passport, so the risk engine is reused, not
+  rebuilt. Non-custodial — ApnaKhata sizes and records; funds move on the NBFC's rails.
 
 ---
 

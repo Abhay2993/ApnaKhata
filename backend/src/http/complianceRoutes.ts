@@ -8,7 +8,9 @@
 import { Router } from 'express';
 
 import { EInvoiceService } from '../services/EInvoiceService';
+import { EwayBillService } from '../services/EwayBillService';
 import { GstInvoiceService } from '../services/GstInvoiceService';
+import { Gstr2bReconciliationService } from '../services/Gstr2bReconciliationService';
 import { PaperWidth, ReceiptService } from '../services/ReceiptService';
 import { requireUser, wrap } from './middleware';
 
@@ -16,6 +18,8 @@ export interface ComplianceServices {
   gst: GstInvoiceService;
   einvoice: EInvoiceService;
   receipts: ReceiptService;
+  gstr2b: Gstr2bReconciliationService;
+  eway: EwayBillService;
 }
 
 export function complianceRoutes(s: ComplianceServices): Router {
@@ -122,6 +126,61 @@ export function complianceRoutes(s: ComplianceServices): Router {
     wrap(async (req, res) => {
       const phone = req.query.phone ? String(req.query.phone) : undefined;
       res.json(await s.receipts.whatsappShareLink(req.params.id, phone));
+    }),
+  );
+
+  // --- GSTR-2B ITC reconciliation -----------------------------------------
+  r.post(
+    '/gst/gstr2b/import',
+    requireUser,
+    wrap(async (req, res) => {
+      const { buyerGstin, period, records } = req.body;
+      const count = await s.gstr2b.importGstr2b(buyerGstin, period, records ?? []);
+      res.status(201).json({ imported: count });
+    }),
+  );
+
+  r.get(
+    '/gst/gstr2b/reconcile',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.gstr2b.reconcile(req.userId as string, String(req.query.period ?? '')));
+    }),
+  );
+
+  // --- E-way bills ---------------------------------------------------------
+  r.get(
+    '/gst/invoices/:id/eway/required',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.eway.isRequired(req.params.id));
+    }),
+  );
+
+  r.post(
+    '/gst/invoices/:id/eway',
+    requireUser,
+    wrap(async (req, res) => {
+      const { distanceKm, transportMode, vehicleNo } = req.body;
+      res.status(201).json(
+        await s.eway.generate({ transactionId: req.params.id, distanceKm: Number(distanceKm), transportMode, vehicleNo }),
+      );
+    }),
+  );
+
+  r.post(
+    '/gst/invoices/:id/eway/cancel',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.eway.cancel(req.params.id, String(req.body?.reason ?? '')));
+    }),
+  );
+
+  r.get(
+    '/gst/invoices/:id/eway',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.eway.get(req.params.id));
     }),
   );
 

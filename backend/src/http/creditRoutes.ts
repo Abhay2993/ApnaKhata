@@ -6,6 +6,7 @@
 
 import { Router } from 'express';
 
+import { BnplService, Tenure } from '../services/BnplService';
 import { CreditHistoryService } from '../services/CreditHistoryService';
 import { CreditPassportService } from '../services/CreditPassportService';
 import { CreditScoreEvaluator } from '../services/CreditScoreEvaluator';
@@ -23,6 +24,7 @@ export interface CreditServices {
   history: CreditHistoryService;
   lenders: LenderSubmissionService;
   dashboard: DashboardService;
+  bnpl: BnplService;
 }
 
 export function creditRoutes(s: CreditServices): Router {
@@ -174,6 +176,49 @@ export function creditRoutes(s: CreditServices): Router {
     requireUser,
     wrap(async (req, res) => {
       res.json(await s.lenders.listForUser(req.userId as string));
+    }),
+  );
+
+  // --- BNPL / working-capital financing -----------------------------------
+  r.get(
+    '/credit/bnpl/offer',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.bnpl.getOffer(req.userId as string));
+    }),
+  );
+
+  r.post(
+    '/credit/bnpl/quote',
+    requireUser,
+    wrap(async (req, res) => {
+      const { invoiceId, tenureDays } = req.body;
+      res.json(await s.bnpl.quoteInvoice(req.userId as string, invoiceId, Number(tenureDays) as Tenure));
+    }),
+  );
+
+  r.post(
+    '/credit/bnpl/finance',
+    requireUser,
+    wrap(async (req, res) => {
+      const { invoiceId, tenureDays } = req.body;
+      res.status(201).json(await s.bnpl.financeInvoice(req.userId as string, invoiceId, Number(tenureDays) as Tenure));
+    }),
+  );
+
+  r.post(
+    '/credit/bnpl/:id/repay',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.bnpl.repay(req.params.id, Number(req.body?.amount)));
+    }),
+  );
+
+  r.get(
+    '/credit/bnpl',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.bnpl.list(req.userId as string));
     }),
   );
 

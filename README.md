@@ -86,6 +86,10 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/DealerDirectoryService.ts` | Marketplace — dealer/product search and catalog; shopkeepers order via `POST /v1/purchase-orders/from-catalog`. |
 | `backend/src/services/IntegrationService.ts` + `backend/src/events/` | External billing/POS webhook ingestion (HMAC, idempotent, FEFO) → live inventory; poll `/v1/inventory/live` or subscribe to the SSE stream. |
 | `web/src/screens/Marketplace.tsx` | Web Market tab — search wholesalers, browse catalog, place an order (live or demo). |
+| `database/migrations/006_bnpl_itc_eway.sql` | BNPL financings, GSTR-2B records, e-way bills. |
+| `backend/src/services/BnplService.ts` | Point-of-purchase working-capital financing — the NBFC settles a distributor bill, the shopkeeper repays over a short tenure; limit/fee from the credit score. |
+| `backend/src/services/Gstr2bReconciliationService.ts` | GSTR-2B input-tax-credit matching — classifies purchases vs supplier-filed data and quantifies eligible / at-risk ITC. |
+| `backend/src/services/EwayBillService.ts` + `backend/src/irp/EwbGateway.ts` | E-way bill generation above the ₹50k threshold via a pluggable EWB gateway. |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

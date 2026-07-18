@@ -15,9 +15,12 @@ import { Pool } from 'pg';
 import { ConsoleNotifier, Notifier } from './notifications/Notifier';
 import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
+import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
 import { EInvoiceService } from './services/EInvoiceService';
+import { EwayBillService } from './services/EwayBillService';
 import { GstInvoiceService } from './services/GstInvoiceService';
+import { Gstr2bReconciliationService } from './services/Gstr2bReconciliationService';
 import { ReceiptService } from './services/ReceiptService';
 import { CreditPassportService } from './services/CreditPassportService';
 import { CreditScoreEvaluator } from './services/CreditScoreEvaluator';
@@ -94,6 +97,7 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       history: new CreditHistoryService(db),
       lenders: new LenderSubmissionService(db, passports),
       dashboard: new DashboardService(db),
+      bnpl: new BnplService(db),
     }),
   );
   const gst = new GstInvoiceService(db);
@@ -103,6 +107,8 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       gst,
       einvoice: new EInvoiceService(db, gst),
       receipts: new ReceiptService(db, gst),
+      gstr2b: new Gstr2bReconciliationService(db),
+      eway: new EwayBillService(db, gst),
     }),
   );
   app.use(
