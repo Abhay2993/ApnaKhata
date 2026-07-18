@@ -12,6 +12,7 @@ import { RequestHandler, Router } from 'express';
 import { DealerDirectoryService } from '../services/DealerDirectoryService';
 import { IntegrationService } from '../services/IntegrationService';
 import { PurchaseOrderService } from '../services/PurchaseOrderService';
+import { SchemeService } from '../services/SchemeService';
 import { inventoryEvents } from '../events/InventoryEvents';
 import { requireUser, wrap } from './middleware';
 
@@ -60,6 +61,7 @@ export interface MarketplaceServices {
   dealers: DealerDirectoryService;
   purchaseOrders: PurchaseOrderService;
   integrations: IntegrationService;
+  schemes: SchemeService;
 }
 
 export function marketplaceRoutes(s: MarketplaceServices): Router {
@@ -121,13 +123,67 @@ export function marketplaceRoutes(s: MarketplaceServices): Router {
     }),
   );
 
-  // --- Order from a dealer's catalog (shopkeeper) -------------------------
+  // --- Scheme-applied price quote (shopkeeper) ----------------------------
+  r.post(
+    '/dealers/:id/quote',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.schemes.applyToCart(req.params.id, req.body?.lines ?? []));
+    }),
+  );
+
+  // --- Order from a dealer's catalog, with schemes applied (shopkeeper) ----
   r.post(
     '/purchase-orders/from-catalog',
     requireUser,
     wrap(async (req, res) => {
-      const { dealerId, lines, notes } = req.body;
-      res.status(201).json(await s.purchaseOrders.createFromCatalog(req.userId as string, dealerId, lines, notes));
+      const { dealerId, lines } = req.body;
+      const quote = await s.schemes.applyToCart(dealerId, lines ?? []);
+      const notes =
+        quote.totalDiscount > 0
+          ? `Schemes applied: saved ${quote.totalDiscount}${quote.totalFreeUnits ? `, ${quote.totalFreeUnits} free units` : ''}`
+          : undefined;
+      const order = await s.purchaseOrders.createOrder({
+        buyerId: req.userId as string,
+        supplierId: dealerId,
+        submit: true,
+        notes,
+        items: quote.lines.map((l) => ({
+          sku: l.sku,
+          productName: l.productName,
+          unit: l.unit,
+          quantity: l.totalQty,
+          unitPrice: l.effectiveUnitPrice,
+          source: 'MANUAL' as const,
+        })),
+      });
+      res.status(201).json({ ...order, schemeSummary: quote });
+    }),
+  );
+
+  // --- Trade schemes (dealer) ---------------------------------------------
+  r.post(
+    '/dealers/schemes',
+    requireUser,
+    wrap(async (req, res) => {
+      res.status(201).json(await s.schemes.createScheme(req.userId as string, req.body));
+    }),
+  );
+
+  r.get(
+    '/dealers/schemes',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.schemes.listSchemes(req.userId as string));
+    }),
+  );
+
+  r.post(
+    '/dealers/schemes/:id/deactivate',
+    requireUser,
+    wrap(async (req, res) => {
+      await s.schemes.deactivate(req.userId as string, req.params.id);
+      res.status(204).end();
     }),
   );
 

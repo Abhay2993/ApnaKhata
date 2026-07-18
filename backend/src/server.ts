@@ -13,6 +13,7 @@ import express, { Express } from 'express';
 import { Pool } from 'pg';
 
 import { ConsoleNotifier, Notifier } from './notifications/Notifier';
+import { AnalyticsService } from './services/AnalyticsService';
 import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
@@ -35,8 +36,10 @@ import { LenderSubmissionService } from './services/LenderSubmissionService';
 import { PaymentPlanService } from './services/PaymentPlanService';
 import { PaymentReminderService } from './services/PaymentReminderService';
 import { PurchaseOrderService } from './services/PurchaseOrderService';
+import { SchemeService } from './services/SchemeService';
 import { UpiCollectionService } from './services/UpiCollectionService';
 import { WarehouseService } from './services/WarehouseService';
+import { analyticsRoutes } from './http/analyticsRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
@@ -117,8 +120,10 @@ export function buildApp(db: Pool, notifier: Notifier = new ConsoleNotifier()): 
       dealers: new DealerDirectoryService(db),
       purchaseOrders: new PurchaseOrderService(db),
       integrations,
+      schemes: new SchemeService(db),
     }),
   );
+  app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
 
   app.use(errorHandler);
   return app;

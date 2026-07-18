@@ -90,6 +90,9 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/BnplService.ts` | Point-of-purchase working-capital financing — the NBFC settles a distributor bill, the shopkeeper repays over a short tenure; limit/fee from the credit score. |
 | `backend/src/services/Gstr2bReconciliationService.ts` | GSTR-2B input-tax-credit matching — classifies purchases vs supplier-filed data and quantifies eligible / at-risk ITC. |
 | `backend/src/services/EwayBillService.ts` + `backend/src/irp/EwbGateway.ts` | E-way bill generation above the ₹50k threshold via a pluggable EWB gateway. |
+| `database/migrations/007_analytics_schemes.sql` | `dealer_schemes` (trade schemes); analytics is read-only over existing data. |
+| `backend/src/services/AnalyticsService.ts` | Profit/margin per product, fastest movers, dead stock, and a business-health score (DIO/DSO/DPO, cash-conversion cycle, runway) — `GET /v1/analytics/profit` \| `/health`. |
+| `backend/src/services/SchemeService.ts` | Distributor trade schemes — volume slabs, buy-x-get-y, flat-percent — applied at quote/order time in the marketplace. |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

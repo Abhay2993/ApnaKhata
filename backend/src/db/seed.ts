@@ -150,6 +150,21 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.distributor],
   );
 
+  // Demo trade schemes on the distributor's catalog.
+  await db.query(
+    `
+    INSERT INTO dealer_schemes (dealer_id, name, scheme_type, sku, category, config)
+    SELECT $1, v.name, v.stype::scheme_type, v.sku, v.category, v.config::jsonb
+    FROM (VALUES
+      ('Bulk salt slab','VOLUME_SLAB','TATA-SALT-1KG',NULL,'{"slabs":[{"minQty":24,"unitPrice":21},{"minQty":120,"unitPrice":19.5}]}'),
+      ('Parle-G 20+2 free','BUY_X_GET_Y','PARLE-G-800',NULL,'{"buyQty":20,"freeQty":2}'),
+      ('Grocery festive 4% off','FLAT_PERCENT',NULL,'Grocery','{"percent":4}')
+    ) AS v(name,stype,sku,category,config)
+    WHERE NOT EXISTS (SELECT 1 FROM dealer_schemes WHERE dealer_id = $1)
+    `,
+    [DEMO.distributor],
+  );
+
   // Initial credit score so the dashboard has a number on first load.
   await new CreditScoreEvaluator(db).evaluate(DEMO.shopkeeper);
 

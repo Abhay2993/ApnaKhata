@@ -187,6 +187,30 @@ browses a dealer's catalog, and orders via `POST /v1/purchase-orders/from-catalo
 prices and MOQ come from the catalog (not the client) and the order flows through the
 existing PO → goods-receipt → ledger pipeline. Surfaced in the web app's **Market** tab.
 
+**Trade schemes** (migration
+[`007_analytics_schemes.sql`](../database/migrations/007_analytics_schemes.sql),
+[`SchemeService`](../backend/src/services/SchemeService.ts)): distributors attach real
+schemes to their catalog — **volume slabs** (cheaper above a quantity), **buy-x-get-y**
+(free goods), and **flat-percent** (seasonal, date-windowed), scoped to a SKU, a category,
+or all products. `POST /v1/dealers/:id/quote` prices a cart against the best-benefit
+applicable scheme per line (free units, discount, net); `from-catalog` orders apply the
+same engine so the PO carries the discounted totals and free units.
+
+### 2.5 Profit & Business-Health Analytics
+
+[`AnalyticsService`](../backend/src/services/AnalyticsService.ts) turns the ledger into an
+advisor, read-only over data already captured (inventory prices, `stock_movements`, the
+ledger):
+
+- **Profit** (`GET /v1/analytics/profit`) — per-product unit margin, gross profit, and
+  revenue over a rolling window; **fastest movers** (by units sold); and **dead stock**
+  (items with stock but no sales — capital tied up), each with the value at risk.
+- **Business health** (`GET /v1/analytics/health`) — inventory value, DIO / DSO / DPO and
+  the **cash-conversion cycle**, an estimated **cash-runway** (cash-positive vs days of
+  buffer), and a 0–100 **health score** (margin 35% · turnover 30% · collections 20% ·
+  dead-stock 15%) with a rating (STRONG / STABLE / WATCH / AT_RISK) and plain-language
+  advice ("stock is turning slowly — trim slow movers").
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).
