@@ -6,15 +6,17 @@ import { useState } from 'react';
 
 import { Header } from '../components';
 import Analytics from './Analytics';
+import CashDrawer from './CashDrawer';
 import Ledger from './Ledger';
 import LiveInventory from './LiveInventory';
 import Scan from './Scan';
 
-type Sub = 'analytics' | 'ledger' | 'live' | 'scan';
+type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash';
 
 const TILES: { key: Sub; title: string; sub: string; icon: string }[] = [
   { key: 'analytics', title: 'Analytics', sub: 'Profit, margins, health', icon: '📈' },
-  { key: 'ledger', title: 'Ledger', sub: 'Bills, reminders, EMI, disputes', icon: '📒' },
+  { key: 'ledger', title: 'Ledger', sub: 'Bills, reminders, EMI, AutoPay', icon: '📒' },
+  { key: 'cash', title: 'Cash Drawer', sub: 'Daily cash vs digital close', icon: '💵' },
   { key: 'live', title: 'Live Inventory', sub: 'Real-time stock from billing', icon: '📦' },
   { key: 'scan', title: 'Scan & Bill', sub: 'Barcode billing & stock-in', icon: '📷' },
 ];
@@ -28,6 +30,7 @@ export default function More() {
         <button type="button" className="back-bar" onClick={() => setOpen(null)}>← More</button>
         {open === 'analytics' && <Analytics />}
         {open === 'ledger' && <Ledger />}
+        {open === 'cash' && <CashDrawer />}
         {open === 'live' && <LiveInventory />}
         {open === 'scan' && <Scan />}
       </>

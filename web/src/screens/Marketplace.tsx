@@ -26,8 +26,20 @@ const DEMO_DEALERS: DealerResult[] = [
       { sku: 'TATA-SALT-1KG', productName: 'Tata Salt 1kg', wholesalePrice: 22, moq: 24, unit: 'PCS' },
       { sku: 'FORT-OIL-1L', productName: 'Fortune Sunflower Oil 1L', wholesalePrice: 150, moq: 12, unit: 'PCS' },
     ],
+    reliability: { rating: 4.3, band: 'RELIABLE', onTimeRate: 0.75, completionRate: 0.8, disputeRate: 0, observations: 12 },
   },
 ];
+
+/** Reliability chip: ★4.3 RELIABLE, computed from disputes + on-time deliveries. */
+function ReliabilityChip({ r }: { r: NonNullable<DealerResult['reliability']> }) {
+  if (r.band === 'NEW') return <span className="pill pill-slate">NEW DEALER</span>;
+  const tone = r.rating >= 4.5 ? 'green' : r.rating >= 3.8 ? 'gold' : 'red';
+  return (
+    <span className={`pill pill-${tone}`} title={`on-time ${r.onTimeRate ?? '—'} · completion ${r.completionRate ?? '—'} · disputes ${r.disputeRate ?? '—'}`}>
+      ★ {r.rating.toFixed(1)} · {r.band}
+    </span>
+  );
+}
 
 const DEMO_CATALOG: CatalogItem[] = [
   { sku: 'TATA-SALT-1KG', productName: 'Tata Salt 1kg', category: 'Grocery', wholesalePrice: 22, mrp: 28, moq: 24, unit: 'PCS', leadTimeDays: 2 },
@@ -139,6 +151,11 @@ export default function Marketplace() {
               </div>
               <span className="section-note">View →</span>
             </div>
+            {d.reliability && (
+              <div style={{ marginTop: 8 }}>
+                <ReliabilityChip r={d.reliability} />
+              </div>
+            )}
             <div className="alert-meta" style={{ marginTop: 8 }}>
               {d.sampleProducts.map((p) => p.productName).join(' · ')}
             </div>

@@ -165,6 +165,22 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.distributor],
   );
 
+  // Historical POs so the dealer-reliability rating has signal: 4 received
+  // (3 on time, 1 late) and 1 cancelled. ON CONFLICT keeps re-runs clean.
+  await db.query(
+    `
+    INSERT INTO purchase_orders (po_number, buyer_id, supplier_id, status, expected_delivery_date, received_at, created_at)
+    VALUES
+      ('PO-SEED-R1', $1, $2, 'RECEIVED',  CURRENT_DATE - 55, (CURRENT_DATE - 56)::timestamptz, now() - interval '60 days'),
+      ('PO-SEED-R2', $1, $2, 'RECEIVED',  CURRENT_DATE - 40, (CURRENT_DATE - 41)::timestamptz, now() - interval '45 days'),
+      ('PO-SEED-R3', $1, $2, 'RECEIVED',  CURRENT_DATE - 25, (CURRENT_DATE - 26)::timestamptz, now() - interval '30 days'),
+      ('PO-SEED-R4', $1, $2, 'RECEIVED',  CURRENT_DATE - 12, (CURRENT_DATE - 9)::timestamptz,  now() - interval '15 days'),
+      ('PO-SEED-R5', $1, $2, 'CANCELLED', NULL, NULL, now() - interval '10 days')
+    ON CONFLICT (po_number) DO NOTHING
+    `,
+    [DEMO.shopkeeper, DEMO.distributor],
+  );
+
   // Customer khata (consumer udhaar) for the primary shopkeeper — the ledger
   // that voice + WhatsApp entries land in. Ramesh carries a phone so the
   // WhatsApp balance-lookup demo works.

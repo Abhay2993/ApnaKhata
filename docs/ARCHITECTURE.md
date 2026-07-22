@@ -251,6 +251,52 @@ the customer owes the shop.
   production; a recording stub in the sandbox). Production use needs an approved WhatsApp
   Business Account and message templates.
 
+### 2.7 Offline-First Sync (grow-only-set CRDT)
+
+Connectivity in kirana India is patchy, so the app must capture entries offline and
+reconcile later. The customer khata is append-only, which makes this tractable without
+conflict resolution: every entry is an immutable fact identified by a client-generated
+`opId`. Merging two devices' logs is a **set-union** — idempotent, commutative,
+associative — a grow-only-set CRDT; the balance is a fold over the merged set. Migration
+`009` adds a global `sync_seq` cursor to the synced tables and a `client_operations` ledger.
+
+- **Push** (`POST /v1/sync/push`) — a device flushes its outbox (a batch of ops). Each op is
+  applied **at most once**: the handler claims the `opId` with `INSERT … ON CONFLICT DO
+  NOTHING`; a row that's already there is a replay and returns `DUPLICATE` with the original
+  entity ref, touching nothing. So an at-least-once client that retries after a dropped
+  response never double-posts (proven: replaying a batch leaves the balance unchanged). A
+  rejected op (bad amount) never poisons the rest of the batch.
+- **Pull** (`GET /v1/sync/pull?since=`) — returns every customer and entry with
+  `server_seq > since`, plus the new cursor, so a second device merges only the delta.
+- **Client** ([`web/src/screens/Khata.tsx`](../web/src/screens/Khata.tsx)) — when a live POST
+  fails, the entry is parsed locally, queued in a `localStorage` outbox (each with a UUID
+  `opId`), and applied optimistically; a "pending sync" badge shows the queue depth. On the
+  `online` event (and on mount) the outbox flushes through push and clears.
+
+### 2.8 Cash Drawer, AutoPay, Smart Reminders, Reliability & Festival Planner
+
+Five features that build on data the ledger already holds:
+
+- **Cash-drawer reconciliation** ([`CashDrawerService`](../backend/src/services/CashDrawerService.ts))
+  — the daily cash-vs-digital close: opening float, cash in/out, `expected = opening + Σin −
+  Σout`, and `variance = counted − expected` at close. Migration `010`.
+- **UPI AutoPay / e-mandate** ([`UpiMandateService`](../backend/src/services/UpiMandateService.ts))
+  — recurring distributor payments: create → authorize (a generated UMN) → execute a debit
+  that inserts a payment and settles it through `apply_payment_fifo`, so AutoPay reconciles
+  exactly like a manual UPI collection. A nightly `autopay-mandates` job runs due debits,
+  capped at the payer's actual outstanding dues.
+- **Liquidity-timed reminders** ([`SmartReminderService`](../backend/src/services/SmartReminderService.ts))
+  — learns each debtor's typical pay-day-of-month from payment history and suggests sending
+  the nudge just before it, rather than on a blind fixed cadence. Read-only.
+- **Dealer reliability rating** ([`DealerReliabilityService`](../backend/src/services/DealerReliabilityService.ts))
+  — a 0–5★ marketplace trust signal from `0.40·(1−disputeRate) + 0.35·onTimeRate +
+  0.25·completionRate`, thin-file damped toward a neutral 3.5 until ~10 observations, folded
+  into dealer search results.
+- **Festival demand planner** ([`FestivalPlannerService`](../backend/src/services/FestivalPlannerService.ts))
+  — surfaces the forecaster's festival seasonality as advice: for each upcoming festival it
+  combines the stored per-item forecast with a festival uplift and the supplier lead time
+  into a stock-up list with an order-by date.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

@@ -10,6 +10,8 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Dashboard as DashboardData,
   fetchDashboard,
+  fetchFestivalPlan,
+  FestivalPlan,
   isLiveConfigured,
   reorderFromForecast,
 } from '../api';
@@ -63,6 +65,14 @@ const DEMO: ViewModel = {
 // A gently varied sparkline seed so live alerts (no historical trend yet) still
 // render a line rather than a flat bar.
 const PLACEHOLDER_TREND = [5, 6, 5, 7, 6, 8, 6, 7, 8, 7, 9, 8, 7, 9];
+
+const DEMO_FESTIVAL: FestivalPlan = {
+  festival: { name: 'Raksha Bandhan', date: '2026-08-28', daysAway: 41, uplift: 1.5, windowDays: 4 },
+  items: [
+    { sku: 'TATA-SALT-1KG', productName: 'Tata Salt 1kg', currentStock: 14, unit: 'PCS', suggestedOrderQty: 266, orderByDate: '2026-08-22', distributorName: 'Sharma Distributors' },
+  ],
+  advice: 'Raksha Bandhan is 41 days away and demand typically runs 1.5× — stock up 1 item (order by 2026-08-22).',
+};
 
 function toViewModel(d: DashboardData): ViewModel {
   return {
@@ -168,6 +178,7 @@ export default function Dashboard() {
   const [vm, setVm] = useState<ViewModel>(DEMO);
   const [mode, setMode] = useState<'demo' | 'live' | 'loading'>(isLiveConfigured() ? 'loading' : 'demo');
   const [orderStates, setOrderStates] = useState<Record<string, OrderState>>({});
+  const [festival, setFestival] = useState<FestivalPlan | null>(DEMO_FESTIVAL);
 
   useEffect(() => {
     if (!isLiveConfigured()) return;
@@ -178,6 +189,9 @@ export default function Dashboard() {
         setMode('live');
       })
       .catch(() => setMode('demo')); // API unreachable → keep demo data
+    fetchFestivalPlan().then((plans) => {
+      if (plans) setFestival(plans[0] ?? null);
+    });
     return () => ctrl.abort();
   }, []);
 
@@ -268,6 +282,30 @@ export default function Dashboard() {
         </div>
         <div className="advice" style={{ marginTop: 12 }}>▸ Open the Analytics tab for margins, fastest movers, and dead stock.</div>
       </section>
+
+      {festival && (
+        <section className="card festival-card">
+          <div className="passport-head">
+            <span className="card-label">🪔 Festival Planner</span>
+            <span className="tier-chip">{festival.festival.name.toUpperCase()}</span>
+          </div>
+          <div className="advice" style={{ marginTop: 8 }}>{festival.advice}</div>
+          {festival.items.slice(0, 2).map((it) => (
+            <div key={it.sku} className="frow" style={{ marginTop: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div className="alert-name">{it.productName}</div>
+                <div className="alert-meta">
+                  {it.currentStock} {it.unit} in stock · {it.distributorName ?? 'no supplier set'}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <div className="stat-value gold" style={{ fontSize: 16 }}>+{it.suggestedOrderQty} {it.unit}</div>
+                <div className="alert-meta">order by {it.orderByDate}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <div className="section-head">
         <span className="card-label">Stock Alerts</span>

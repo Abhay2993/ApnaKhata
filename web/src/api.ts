@@ -100,6 +100,15 @@ export interface DealerSampleProduct {
   unit: string;
 }
 
+export interface DealerReliability {
+  rating: number;
+  band: 'EXCELLENT' | 'RELIABLE' | 'MIXED' | 'POOR' | 'NEW';
+  onTimeRate: number | null;
+  completionRate: number | null;
+  disputeRate: number | null;
+  observations: number;
+}
+
 export interface DealerResult {
   dealerId: string;
   businessName: string;
@@ -107,6 +116,7 @@ export interface DealerResult {
   productCount: number;
   minLeadTimeDays: number | null;
   sampleProducts: DealerSampleProduct[];
+  reliability?: DealerReliability | null;
 }
 
 export interface CatalogItem {
@@ -180,3 +190,75 @@ export async function listCustomers(): Promise<CustomerBalance[] | null> {
 export async function recordVoiceLedger(transcript: string): Promise<VoiceResult | null> {
   return apiPost<VoiceResult>('/v1/voice/ledger', { transcript });
 }
+
+// --- Offline-first sync ---
+export interface SyncOperation {
+  opId: string;
+  type: 'CUSTOMER_LEDGER_ENTRY';
+  clientTs?: string;
+  payload: {
+    customerName: string;
+    entryType: 'CREDIT' | 'PAYMENT';
+    amount: number;
+    source?: 'VOICE' | 'MANUAL' | 'WHATSAPP';
+    transcript?: string;
+  };
+}
+
+export interface SyncPushResult {
+  results: { opId: string; status: 'APPLIED' | 'DUPLICATE' | 'REJECTED'; ref?: string; reason?: string }[];
+  cursor: number;
+}
+
+export async function syncPush(deviceId: string, operations: SyncOperation[]): Promise<SyncPushResult | null> {
+  return apiPost<SyncPushResult>('/v1/sync/push', { deviceId, operations });
+}
+
+// --- Cash drawer ---
+export interface DrawerSummary {
+  id: string;
+  businessDate: string;
+  status: 'OPEN' | 'CLOSED';
+  openingBalance: number;
+  cashIn: number;
+  cashOut: number;
+  expectedClosing: number;
+  countedClosing: number | null;
+  variance: number | null;
+  movementCount: number;
+}
+
+export const getDrawerToday = () => apiGet<DrawerSummary | { status: 'NOT_OPENED' }>('/v1/cash-drawer/today');
+export const openDrawer = (openingBalance: number) => apiPost<DrawerSummary>('/v1/cash-drawer/open', { openingBalance });
+export const addDrawerMovement = (direction: 'IN' | 'OUT', amount: number, reason?: string) =>
+  apiPost<DrawerSummary>('/v1/cash-drawer/movements', { direction, amount, reason });
+export const closeDrawer = (countedClosing: number) => apiPost<DrawerSummary>('/v1/cash-drawer/close', { countedClosing });
+
+// --- Festival planner ---
+export interface FestivalPlan {
+  festival: { name: string; date: string; daysAway: number; uplift: number; windowDays: number };
+  items: {
+    sku: string;
+    productName: string;
+    currentStock: number;
+    unit: string;
+    suggestedOrderQty: number;
+    orderByDate: string;
+    distributorName: string | null;
+  }[];
+  advice: string;
+}
+
+export const fetchFestivalPlan = () => apiGet<FestivalPlan[]>('/v1/festivals/plan');
+
+// --- UPI AutoPay mandates ---
+export interface Mandate {
+  id: string;
+  maxAmount: number;
+  frequency: 'WEEKLY' | 'MONTHLY';
+  umn: string | null;
+  status: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  nextDebitDate: string | null;
+}
+
+export const listMandates = () => apiGet<Mandate[]>('/v1/mandates');

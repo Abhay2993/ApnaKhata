@@ -19,7 +19,13 @@ import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
+import { CashDrawerService } from './services/CashDrawerService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { DealerReliabilityService } from './services/DealerReliabilityService';
+import { FestivalPlannerService } from './services/FestivalPlannerService';
+import { SmartReminderService } from './services/SmartReminderService';
+import { SyncService } from './services/SyncService';
+import { UpiMandateService } from './services/UpiMandateService';
 import { WhatsAppBotService } from './services/WhatsAppBotService';
 import { EInvoiceService } from './services/EInvoiceService';
 import { EwayBillService } from './services/EwayBillService';
@@ -49,6 +55,8 @@ import { customerRoutes } from './http/customerRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
 import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
+import { opsRoutes } from './http/opsRoutes';
+import { syncRoutes } from './http/syncRoutes';
 import { webhookRoutes } from './http/webhookRoutes';
 import { cors, errorHandler, requireApiKey } from './http/middleware';
 
@@ -131,10 +139,21 @@ export function buildApp(
       purchaseOrders: new PurchaseOrderService(db),
       integrations,
       schemes: new SchemeService(db),
+      reliability: new DealerReliabilityService(db),
     }),
   );
   app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
   app.use('/v1', customerRoutes(customers));
+  app.use('/v1', syncRoutes(new SyncService(db, customers)));
+  app.use(
+    '/v1',
+    opsRoutes({
+      cashDrawer: new CashDrawerService(db),
+      mandates: new UpiMandateService(db),
+      smartReminders: new SmartReminderService(db),
+      festivals: new FestivalPlannerService(db),
+    }),
+  );
 
   app.use(errorHandler);
   return app;

@@ -734,6 +734,12 @@ body {
   opacity: 0.75;
 }
 
+/* Dashboard — festival planner */
+.festival-card {
+  background: linear-gradient(160deg, rgba(212, 175, 55, 0.1), rgba(31, 40, 51, 0.35));
+  border: 1px solid rgba(212, 175, 55, 0.28);
+}
+
 /* Khata — customer rows */
 .khata-row {
   display: flex;

@@ -52,6 +52,9 @@ const EN = {
   'khata.voiceUnsupported': 'Voice input is not supported in this browser — type instead.',
   'khata.hint': 'Say a name, amount and udhaar/jama — in Hinglish. Numbers like "paanch sau", "do hazaar", "dhai sau" all work.',
   'khata.newBalance': 'New balance',
+  'khata.offlineSaved': 'Saved offline — will sync when back online',
+  'khata.pendingSync': 'pending sync',
+  'khata.synced': 'Offline entries synced',
 };
 
 type Keys = keyof typeof EN;
@@ -74,6 +77,9 @@ const OVERLAY: Partial<Record<Lang, Partial<Record<Keys, string>>>> = {
     'khata.voiceUnsupported': 'इस ब्राउज़र में वॉइस समर्थित नहीं — कृपया टाइप करें।',
     'khata.hint': 'नाम, रकम और उधार/जमा बोलें — हिंग्लिश में। "paanch sau", "do hazaar", "dhai sau" जैसे नंबर भी चलते हैं।',
     'khata.newBalance': 'नया बकाया',
+    'khata.offlineSaved': 'ऑफ़लाइन सहेजा गया — नेटवर्क आते ही सिंक होगा',
+    'khata.pendingSync': 'सिंक बाकी',
+    'khata.synced': 'ऑफ़लाइन एंट्रियाँ सिंक हो गईं',
   },
   mr: {
     'lang.label': 'भाषा',
