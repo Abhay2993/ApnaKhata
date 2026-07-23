@@ -262,3 +262,76 @@ export interface Mandate {
 }
 
 export const listMandates = () => apiGet<Mandate[]>('/v1/mandates');
+
+// --- Anchor-led supply-chain finance (OCEN + Account Aggregator) ---
+export interface AnchorRelationship {
+  anchorId: string;
+  anchorName: string;
+  invoiceCount: number;
+  totalTrade: number;
+  outstanding: number;
+  tenureMonths: number;
+  onTimeRate: number | null;
+  strength: number;
+}
+
+export interface AaSummary {
+  avgMonthlyInflow: number;
+  avgMonthlyOutflow: number;
+  avgBalance: number;
+  minBalance: number;
+  bounceCount: number;
+  months: number;
+}
+
+export interface LoanOffer {
+  id: string;
+  lenderKey: string;
+  lenderName: string;
+  sanctionedAmount: number;
+  interestRatePct: number;
+  tenureDays: number;
+  processingFee: number;
+  emiAmount: number;
+  totalRepayable: number;
+  status: string;
+}
+
+export interface LoanApplication {
+  id: string;
+  status: string;
+  riskGrade: string | null;
+  recommendedLimit: number | null;
+  anchorStrength: number | null;
+  creditScore: number | null;
+  underwriting: { usedAccountAggregator: boolean; rationale: string[] } | null;
+  offers?: LoanOffer[];
+}
+
+export interface DisbursedLoan {
+  id: string;
+  lenderName: string;
+  principal: number;
+  interestRatePct: number;
+  disbursedToAnchor: number;
+}
+
+/** The demo anchor: Sharma Distributors (the shopkeeper's preferred supplier). */
+export const ANCHOR_ID = '11111111-1111-1111-1111-111111111111';
+
+export const getAnchorRelationship = (anchorId: string) =>
+  apiGet<AnchorRelationship>(`/v1/scf/anchor/${anchorId}`);
+
+/** Run the whole AA handshake (create → approve → fetch) and return the summary. */
+export async function connectBankViaAA(): Promise<AaSummary | null> {
+  const consent = await apiPost<{ id: string }>('/v1/aa/consents', { months: 6 });
+  if (!consent) return null;
+  await apiPost(`/v1/aa/consents/${consent.id}/approve`, {});
+  return apiPost<AaSummary>(`/v1/aa/consents/${consent.id}/fetch`, {});
+}
+
+export const createLoanApplication = (body: { anchorId: string; amountRequested: number; tenureDays?: number }) =>
+  apiPost<LoanApplication>('/v1/scf/applications', body);
+
+export const acceptLoanOffer = (applicationId: string, offerId: string) =>
+  apiPost<{ loan: DisbursedLoan; application: LoanApplication }>(`/v1/scf/applications/${applicationId}/accept`, { offerId });

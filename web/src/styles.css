@@ -734,6 +734,12 @@ body {
   opacity: 0.75;
 }
 
+/* Working capital — best lender offer */
+.best-offer {
+  border: 1px solid rgba(111, 207, 151, 0.5);
+  background: linear-gradient(160deg, rgba(111, 207, 151, 0.08), rgba(31, 40, 51, 0.35));
+}
+
 /* Dashboard — festival planner */
 .festival-card {
   background: linear-gradient(160deg, rgba(212, 175, 55, 0.1), rgba(31, 40, 51, 0.35));

@@ -59,8 +59,10 @@ deployment URL to use it. Six tabs cover the whole product:
 - **Market** — search wholesalers (each with a **reliability rating** from disputes + on-time
   deliveries), browse catalog with trade schemes, place an order.
 - **GST** — filing summary (GSTR-1/3B), e-invoicing, GSTR-2B input-tax-credit matching, e-way bills.
-- **More** — Analytics, Ledger (bills, liquidity-timed reminders, EMI, **UPI AutoPay
-  mandates**), **Cash Drawer** (daily cash-vs-digital reconciliation), Live Inventory, Scan & Bill.
+- **More** — **Working Capital** (anchor-led supply-chain finance: connect bank via Account
+  Aggregator → competing lender offers → disburse), Analytics, Ledger (bills, liquidity-timed
+  reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer** (daily cash-vs-digital
+  reconciliation), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -132,6 +134,12 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/FestivalPlannerService.ts` | Festival demand planner — folds the stored forecast with festival uplift + lead time into a stock-up list with an order-by date. |
 | `backend/src/http/opsRoutes.ts` | Routes for cash-drawer, mandates, smart-reminder suggestions, and the festival plan. |
 | `web/src/screens/CashDrawer.tsx` | Cash Drawer screen — open/record/close with the variance surfaced (live or demo). |
+| `database/migrations/011_supply_chain_finance.sql` | Anchor-led finance — AA consents + cash-flow summaries, OCEN loan applications, competing lender offers, disbursed loans. |
+| `backend/src/finance/AccountAggregatorGateway.ts` | Pluggable Account Aggregator (Sahamati) gateway; the sandbox derives a coherent cash-flow profile from the borrower's own ledger throughput. |
+| `backend/src/finance/OcenLenderNetwork.ts` | OCEN lender panel — each lender bids independently on the underwriting bundle (risk appetite, rate card, ticket ceiling, anchor discount). |
+| `backend/src/services/AccountAggregatorService.ts` | AA consent lifecycle (create → approve → fetch) and the stored cash-flow summary that feeds underwriting. |
+| `backend/src/services/SupplyChainFinanceService.ts` | The OCEN LSP: anchor-relationship signal + three-factor underwriting (passport + AA + anchor) → competing offers → accept, disbursing to settle the distributor's dues via FIFO. `/v1/scf/*`, `/v1/aa/*`. |
+| `web/src/screens/SupplyChainFinance.tsx` | Working Capital screen — anchor relationship, AA bank connect, competing lender offers, disbursal (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

@@ -19,8 +19,10 @@ import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
+import { AccountAggregatorService } from './services/AccountAggregatorService';
 import { CashDrawerService } from './services/CashDrawerService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { SupplyChainFinanceService } from './services/SupplyChainFinanceService';
 import { DealerReliabilityService } from './services/DealerReliabilityService';
 import { FestivalPlannerService } from './services/FestivalPlannerService';
 import { SmartReminderService } from './services/SmartReminderService';
@@ -52,6 +54,7 @@ import { analyticsRoutes } from './http/analyticsRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { customerRoutes } from './http/customerRoutes';
+import { financeRoutes } from './http/financeRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
 import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
@@ -145,6 +148,8 @@ export function buildApp(
   app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
   app.use('/v1', customerRoutes(customers));
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
+  const accountAggregator = new AccountAggregatorService(db);
+  app.use('/v1', financeRoutes({ aa: accountAggregator, scf: new SupplyChainFinanceService(db, accountAggregator) }));
   app.use(
     '/v1',
     opsRoutes({

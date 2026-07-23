@@ -297,6 +297,48 @@ Five features that build on data the ledger already holds:
   combines the stored per-item forecast with a festival uplift and the supplier lead time
   into a stock-up list with an order-by date.
 
+### 2.9 Anchor-Led Supply-Chain Finance (OCEN LSP + Account Aggregator)
+
+The deepest moat: ApnaKhata holds the one thing lenders can't buy — the verified
+distributor↔retailer relationship and its repayment history — and turns it into a lending
+rail. It acts as an **OCEN Loan Service Provider**, underwriting from three signals no
+competitor holds together and broadcasting one application to a panel of lenders that bid
+against each other. Migration `011`; gateways under [`backend/src/finance/`](../backend/src/finance/).
+
+- **Account Aggregator (Sahamati/AA)** — the consent lifecycle
+  ([`AccountAggregatorService`](../backend/src/services/AccountAggregatorService.ts)):
+  `createConsent` → the borrower approves in their AA app → `fetchFinancials` pulls a
+  statement summary (monthly inflow/outflow, average and minimum balance, cheque bounces,
+  inflow volatility). The sandbox gateway is deliberately **not random** — it derives a
+  coherent cash-flow profile from the borrower's own ledger throughput, so demo underwriting
+  is consistent with the rest of the app. This moves underwriting from score-only to
+  cash-flow-based.
+- **Anchor relationship** — the proprietary signal
+  ([`SupplyChainFinanceService.getAnchorRelationship`](../backend/src/services/SupplyChainFinanceService.ts)):
+  for a specific distributor, the retailer's invoice count, total trade, relationship tenure,
+  and **on-time settlement rate** (computed from `payment_allocations` vs `due_date`) fold
+  into a 0–1 strength. A strong relationship raises the grade, the limit, and — via each
+  lender's anchor discount — the rate.
+- **Three-factor underwriting** — `underwrite` combines the Credit Passport score (45%), the
+  anchor strength (25%), and the AA cash-flow score (30%) into a composite → risk grade A–D
+  and a recommended limit (a blend of ledger throughput and AA inflow, boosted by the anchor,
+  capped by grade). Without AA connected it falls back to score (65%) + anchor (35%) and the
+  rationale nudges the borrower to connect a bank.
+- **OCEN offers** ([`OcenLenderNetwork`](../backend/src/finance/OcenLenderNetwork.ts)) — a
+  panel (development bank, private bank, two NBFC/fintechs) each bids independently based on
+  its risk appetite, rate card, ticket ceiling and anchor discount; only lenders whose policy
+  admits the grade return an offer, sorted best-rate first — a genuine competitive marketplace.
+- **Disbursal closes the loop** — `acceptOffer` marks the winning offer `ACCEPTED` (others
+  `DECLINED`), and when the application is anchor-led it routes the proceeds to settle the
+  retailer's outstanding dues to that distributor through `apply_payment_fifo`: the retailer's
+  working capital pays the supplier and the debt moves to the lender, all in one transaction.
+
+Why it's defensible: the anchor relationship and repayment graph are proprietary and compound
+with every transaction (a data network effect), the AA/OCEN integration is a regulatory moat,
+and working capital living on the rail is the ultimate switching cost. Real AA providers and
+lenders implement the same gateway contracts behind their endpoints; the sandboxes make the
+whole flow runnable and verifiable today.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).
