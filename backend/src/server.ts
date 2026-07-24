@@ -45,6 +45,7 @@ import { DistributorDemandService } from './services/DistributorDemandService';
 import { IntegrationService } from './services/IntegrationService';
 import { InterestAccrualService } from './services/InterestAccrualService';
 import { LenderSubmissionService } from './services/LenderSubmissionService';
+import { PeerBenchmarkService } from './services/PeerBenchmarkService';
 import { PaymentPlanService } from './services/PaymentPlanService';
 import { PaymentReminderService } from './services/PaymentReminderService';
 import { PurchaseOrderService } from './services/PurchaseOrderService';
@@ -146,7 +147,7 @@ export function buildApp(
       reliability: new DealerReliabilityService(db),
     }),
   );
-  app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
+  app.use('/v1', analyticsRoutes(new AnalyticsService(db), new PeerBenchmarkService(db)));
   app.use('/v1', customerRoutes(customers));
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
   const accountAggregator = new AccountAggregatorService(db);

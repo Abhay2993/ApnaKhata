@@ -376,3 +376,14 @@ export const payViaCreditLine = (body: { payeeId?: string; payeeName?: string; a
 export const repayCreditLine = (amount: number) =>
   apiPost<{ line: CreditLine; txn: CreditLineTxn }>('/v1/credit-line/repay', { amount });
 export const listCreditLineTxns = () => apiGet<CreditLineTxn[]>('/v1/credit-line/transactions');
+
+// --- Peer benchmarking / consortium intelligence ---
+export interface Benchmarks {
+  cohort: { size: number; basis: string };
+  margin: { yoursPct: number; peerMedianPct: number; percentile: number; verdict: 'above' | 'below' | 'inline' } | null;
+  laggingProducts: { sku: string; productName: string; yourWeeklyUnits: number; peerMedianWeeklyUnits: number; gapPct: number }[];
+  assortmentGaps: { sku: string; productName: string; category: string; peerCarryingPct: number; peerMedianWeeklyUnits: number }[];
+  insights: string[];
+}
+
+export const fetchBenchmarks = () => apiGet<Benchmarks>('/v1/analytics/benchmarks');

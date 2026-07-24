@@ -351,6 +351,18 @@ and settles the payee's dues through `apply_payment_fifo`. `repay` frees the lim
 the line revolves. Because the payment rail and the credit sit in one place, this is the
 stickiest lock-in in the stack. Routes under `/v1/credit-line/*`.
 
+### 2.11 Peer Benchmarking / Consortium Intelligence
+
+The pure-data moat: [`PeerBenchmarkService`](../backend/src/services/PeerBenchmarkService.ts)
+compares a shop against a cohort of peers (same state, falling back to all shopkeepers) using
+inventory + `stock_movements` that already flow through the network — comparisons a new
+entrant simply cannot reproduce without scale. It returns three things, all **aggregates**
+(no peer is ever named): a **margin percentile** (sales-weighted gross margin vs the peer
+median), **velocity lags** (SKUs where the shop's weekly units trail the peer median by >10%),
+and **assortment gaps** (SKUs carried by ≥50% of peers but not this shop, with the typical
+peer weekly demand). From these it writes plain-language insights ("peers sell 60% more
+Parle-G than you"; "5 fast-movers peers carry that you don't"). `GET /v1/analytics/benchmarks`.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

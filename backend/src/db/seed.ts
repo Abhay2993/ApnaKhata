@@ -119,6 +119,71 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.saltInventory, DEMO.shopkeeper],
   );
 
+  // Gupta's Parle-G (slow) and Oil sales so peer-benchmark velocity has signal
+  // for those SKUs (Gupta sells Parle-G below the peer median — a laggard).
+  for (const [sku, rate] of [['PARLE-G-800', 2], ['FORT-OIL-1L', 1]] as [string, number][]) {
+    await db.query(
+      `
+      INSERT INTO stock_movements (time, inventory_id, owner_id, delta, reason, stock_after)
+      SELECT now() - (d || ' days')::interval, i.id, i.owner_id, $3, 'SALE', i.current_stock
+      FROM inventory i, generate_series(1, 28) d
+      WHERE i.owner_id = $1 AND i.sku = $2
+        AND NOT EXISTS (SELECT 1 FROM stock_movements sm WHERE sm.inventory_id = i.id)
+      `,
+      [DEMO.shopkeeper, sku, -rate],
+    );
+  }
+
+  // Peer cohort for consortium benchmarking: four more Pune kirana with
+  // overlapping + differing assortments and 28 days of sales, so "shops like
+  // yours" velocity, margin and assortment-gap comparisons are real.
+  const SKU_MASTER: Record<string, [string, string, number, number]> = {
+    'TATA-SALT-1KG': ['Tata Salt 1kg', 'Grocery', 22, 28],
+    'FORT-OIL-1L': ['Fortune Sunflower Oil 1L', 'Grocery', 150, 165],
+    'PARLE-G-800': ['Parle-G 800g Family Pack', 'Biscuits', 84, 98],
+    'MAGGI-2MIN-12': ['Maggi 2-Minute Noodles 12x70g', 'Grocery', 120, 144],
+    'AMUL-BUTTER-500': ['Amul Butter 500g', 'Dairy', 235, 265],
+    'COLGATE-100G': ['Colgate MaxFresh 100g', 'Personal Care', 45, 55],
+    'AASHIRVAAD-ATTA-5KG': ['Aashirvaad Atta 5kg', 'Grocery', 240, 290],
+    'SURF-EXCEL-1KG': ['Surf Excel 1kg', 'Home Care', 110, 135],
+  };
+  const PEERS: { id: string; name: string; gstin: string; assort: [string, number][] }[] = [
+    { id: 'aaaaaaaa-0000-4000-8000-000000000001', name: 'Deshmukh Stores', gstin: '27AADSH1234K1Z1',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 2], ['PARLE-G-800', 5], ['MAGGI-2MIN-12', 3], ['AMUL-BUTTER-500', 2], ['COLGATE-100G', 2], ['AASHIRVAAD-ATTA-5KG', 1]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000002', name: 'Joshi Kirana', gstin: '27AAJOS5678K1Z2',
+      assort: [['TATA-SALT-1KG', 4], ['FORT-OIL-1L', 2], ['PARLE-G-800', 4], ['MAGGI-2MIN-12', 3], ['COLGATE-100G', 2], ['SURF-EXCEL-1KG', 2]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000003', name: 'Patil Provision', gstin: '27AAPAT9012K1Z3',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 3], ['PARLE-G-800', 6], ['MAGGI-2MIN-12', 4], ['AMUL-BUTTER-500', 3], ['AASHIRVAAD-ATTA-5KG', 2], ['SURF-EXCEL-1KG', 2]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000004', name: 'Kulkarni Mart', gstin: '27AAKUL3456K1Z4',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 2], ['PARLE-G-800', 5], ['AMUL-BUTTER-500', 2], ['COLGATE-100G', 3], ['SURF-EXCEL-1KG', 3]] },
+  ];
+  const peersSeeded = Number((await db.query(`SELECT COUNT(*) n FROM users WHERE id = $1`, [PEERS[0].id])).rows[0].n) > 0;
+  if (!peersSeeded) {
+    let peerPhone = 9820000010;
+    for (const peer of PEERS) {
+      await db.query(
+        `INSERT INTO users (id, role, business_name, owner_name, phone, email, password_hash, gstin, city, state_code)
+         VALUES ($1,'SHOPKEEPER',$2,$2,$6,$3,$4,$5,'Pune','27') ON CONFLICT (id) DO NOTHING`,
+        [peer.id, peer.name, `${peer.name.split(' ')[0].toLowerCase()}@demo.in`, pw, peer.gstin, `+91${peerPhone++}`],
+      );
+      for (const [sku, dailyRate] of peer.assort) {
+        const [name, category, wp, rp] = SKU_MASTER[sku];
+        const { rows: inv } = await db.query<{ id: string }>(
+          `INSERT INTO inventory (owner_id, sku, product_name, category, unit, current_stock, minimum_threshold, wholesale_price, retail_price, hsn_code, gst_rate)
+           VALUES ($1,$2,$3,$4,'PCS',40,10,$5,$6,'0000',5)
+           ON CONFLICT (owner_id, sku) DO UPDATE SET product_name = EXCLUDED.product_name RETURNING id`,
+          [peer.id, sku, name, category, wp, rp],
+        );
+        await db.query(
+          `INSERT INTO stock_movements (time, inventory_id, owner_id, delta, reason, stock_after)
+           SELECT now() - (d || ' days')::interval, $1, $2, $3, 'SALE', 40
+           FROM generate_series(1, 28) d`,
+          [inv[0].id, peer.id, -dailyRate],
+        );
+      }
+    }
+  }
+
   await db.query(
     `
     INSERT INTO reminder_policies (distributor_id, bucket, channel, min_interval_days)
