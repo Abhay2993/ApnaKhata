@@ -387,3 +387,44 @@ export interface Benchmarks {
 }
 
 export const fetchBenchmarks = () => apiGet<Benchmarks>('/v1/analytics/benchmarks');
+
+// --- Consumer graph: loyalty + ONDC ---
+export interface LoyaltyMember {
+  customerId: string;
+  customerName?: string;
+  pointsBalance: number;
+  lifetimePoints: number;
+  tier: 'SILVER' | 'GOLD' | 'PLATINUM';
+}
+
+export interface OndcListing {
+  sku: string;
+  productName: string;
+  price: number;
+  currentStock: number;
+}
+
+export interface OndcOrder {
+  id: string;
+  ondcOrderId: string;
+  buyerName: string | null;
+  buyerPincode: string | null;
+  items: { sku: string; name: string; qty: number; price: number }[];
+  total: number;
+  status: string;
+  loyaltyAwarded?: number;
+  createdAt: string;
+}
+
+export interface OndcPublishResult {
+  published: number;
+  storefrontHandle: string;
+  networkListingId: string;
+  listings: OndcListing[];
+}
+
+export const fetchLoyalty = () => apiGet<LoyaltyMember[]>('/v1/loyalty');
+export const publishToOndc = () => apiPost<OndcPublishResult>('/v1/ondc/publish', {});
+export const getOndcListings = () => apiGet<OndcListing[]>('/v1/ondc/listings');
+export const simulateOndcOrder = () => apiPost<OndcOrder>('/v1/ondc/orders/simulate', {});
+export const listOndcOrders = () => apiGet<OndcOrder[]>('/v1/ondc/orders');

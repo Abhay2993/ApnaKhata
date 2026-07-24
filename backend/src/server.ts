@@ -23,6 +23,8 @@ import { AccountAggregatorService } from './services/AccountAggregatorService';
 import { CashDrawerService } from './services/CashDrawerService';
 import { CreditLineService } from './services/CreditLineService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { LoyaltyService } from './services/LoyaltyService';
+import { OndcService } from './services/OndcService';
 import { SupplyChainFinanceService } from './services/SupplyChainFinanceService';
 import { DealerReliabilityService } from './services/DealerReliabilityService';
 import { FestivalPlannerService } from './services/FestivalPlannerService';
@@ -54,6 +56,7 @@ import { UpiCollectionService } from './services/UpiCollectionService';
 import { WarehouseService } from './services/WarehouseService';
 import { analyticsRoutes } from './http/analyticsRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
+import { consumerRoutes } from './http/consumerRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { customerRoutes } from './http/customerRoutes';
 import { financeRoutes } from './http/financeRoutes';
@@ -82,7 +85,8 @@ export function buildApp(
   });
 
   const integrations = new IntegrationService(db);
-  const customers = new CustomerLedgerService(db);
+  const loyalty = new LoyaltyService(db);
+  const customers = new CustomerLedgerService(db, loyalty);
   const whatsappBot = new WhatsAppBotService(db, whatsapp, new PurchaseOrderService(db), customers);
 
   // External webhooks (billing HMAC + WhatsApp) — authenticate on their own, so
@@ -149,6 +153,7 @@ export function buildApp(
   );
   app.use('/v1', analyticsRoutes(new AnalyticsService(db), new PeerBenchmarkService(db)));
   app.use('/v1', customerRoutes(customers));
+  app.use('/v1', consumerRoutes({ loyalty, ondc: new OndcService(db, undefined, loyalty) }));
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
   const accountAggregator = new AccountAggregatorService(db);
   app.use(

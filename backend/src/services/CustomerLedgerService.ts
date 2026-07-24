@@ -14,6 +14,7 @@
 import { Pool, PoolClient } from 'pg';
 
 import { LedgerCommand, parseLedgerCommand } from '../nlp/CommandParser';
+import { LoyaltyService } from './LoyaltyService';
 
 /** Either the pool or a checked-out client, so callers can run inside a txn. */
 type Executor = Pool | PoolClient;
@@ -70,7 +71,9 @@ export interface VoiceResult {
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export class CustomerLedgerService {
-  constructor(private readonly db: Pool) {}
+  // Optional: award loyalty points when a customer buys on credit (three-sided
+  // consumer graph). Injected so the ledger has no hard dependency on loyalty.
+  constructor(private readonly db: Pool, private readonly loyalty?: LoyaltyService) {}
 
   /**
    * Resolve a customer for a spoken/typed name, creating one on first mention.
@@ -141,6 +144,16 @@ export class CustomerLedgerService {
        input.source ?? 'MANUAL', input.transcript ?? null],
     );
     if (rows.length === 0) throw new Error('customer not found');
+
+    // A credit purchase (goods taken) earns loyalty points — best-effort, never
+    // fails the ledger entry.
+    if (this.loyalty && input.entryType === 'CREDIT') {
+      try {
+        await this.loyalty.earnForPurchase(ownerId, customerId, round2(input.amount), rows[0].id);
+      } catch {
+        /* loyalty is non-critical to the ledger */
+      }
+    }
 
     const balance = await this.getBalance(ownerId, customerId);
     return { customer: balance, entry: mapEntry(rows[0]) };

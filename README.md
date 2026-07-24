@@ -64,7 +64,8 @@ deployment URL to use it. Six tabs cover the whole product:
   UPI — pay distributors from a sanctioned revolving line, not a bank balance), Analytics,
   Ledger (bills, liquidity-timed reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer**
   (daily cash-vs-digital reconciliation), **Benchmarks** (anonymised peer/consortium
-  intelligence — margin percentile, velocity lags, assortment gaps), Live Inventory, Scan & Bill.
+  intelligence — margin percentile, velocity lags, assortment gaps), **Storefront** (publish
+  live inventory to **ONDC** + a customer **loyalty program**), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -147,6 +148,10 @@ directly in the repo. To run the real mobile app, see
 | `web/src/screens/CreditLine.tsx` | Credit Line screen — virtual RuPay card, utilisation meter, scan-and-pay a distributor, repay (live or demo). |
 | `backend/src/services/PeerBenchmarkService.ts` | Anonymised consortium intelligence — margin percentile, velocity lags, and assortment gaps vs a same-state peer cohort. `GET /v1/analytics/benchmarks`. |
 | `web/src/screens/Benchmarks.tsx` | Benchmarks screen — insights, margin-vs-peers, lagging products, and fast-movers to stock (live or demo). |
+| `database/migrations/013_loyalty_ondc.sql` | Consumer graph — `loyalty_accounts`/`loyalty_txns` and `ondc_listings`/`ondc_orders`. |
+| `backend/src/services/LoyaltyService.ts` | Points program tied to the khata — earn on credit purchases (auto-hooked into `CustomerLedgerService`), redeem, tiers. `/v1/loyalty/*`. |
+| `backend/src/services/OndcService.ts` + `backend/src/finance/OndcGateway.ts` | Publishes inventory to ONDC (pluggable seller-node gateway); consumer orders draw down stock, book a retail sale, and earn loyalty for matched customers. `/v1/ondc/*`. |
+| `web/src/screens/Storefront.tsx` | Storefront screen — ONDC publish + incoming orders, and the loyalty roster with tiers (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

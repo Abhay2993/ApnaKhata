@@ -12,13 +12,15 @@ import CreditLine from './CreditLine';
 import Ledger from './Ledger';
 import LiveInventory from './LiveInventory';
 import Scan from './Scan';
+import Storefront from './Storefront';
 import SupplyChainFinance from './SupplyChainFinance';
 
-type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks';
+type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks' | 'storefront';
 
 const TILES: { key: Sub; title: string; sub: string; icon: string }[] = [
   { key: 'scf', title: 'Working Capital', sub: 'Anchor-led loans, lender offers', icon: '🏦' },
   { key: 'creditline', title: 'Credit Line', sub: 'RuPay line on UPI', icon: '💳' },
+  { key: 'storefront', title: 'Storefront', sub: 'ONDC + loyalty program', icon: '🛒' },
   { key: 'analytics', title: 'Analytics', sub: 'Profit, margins, health', icon: '📈' },
   { key: 'benchmarks', title: 'Benchmarks', sub: 'How you compare to peers', icon: '📊' },
   { key: 'ledger', title: 'Ledger', sub: 'Bills, reminders, EMI, AutoPay', icon: '📒' },
@@ -38,6 +40,7 @@ export default function More() {
         {open === 'creditline' && <CreditLine />}
         {open === 'analytics' && <Analytics />}
         {open === 'benchmarks' && <Benchmarks />}
+        {open === 'storefront' && <Storefront />}
         {open === 'ledger' && <Ledger />}
         {open === 'cash' && <CashDrawer />}
         {open === 'live' && <LiveInventory />}

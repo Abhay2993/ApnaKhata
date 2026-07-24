@@ -363,6 +363,25 @@ and **assortment gaps** (SKUs carried by ≥50% of peers but not this shop, with
 peer weekly demand). From these it writes plain-language insights ("peers sell 60% more
 Parle-G than you"; "5 fast-movers peers carry that you don't"). `GET /v1/analytics/benchmarks`.
 
+### 2.12 Three-Sided Consumer Graph — Loyalty + ONDC
+
+The B2B network connects distributor↔retailer; this extends it to the **end consumer**, a
+third side no khata competitor reaches (migration `013`).
+
+- **Loyalty** ([`LoyaltyService`](../backend/src/services/LoyaltyService.ts)) — points on the
+  customer khata: 1 pt / ₹50 of credit purchase, redeemable 1 pt = ₹1, with SILVER/GOLD/
+  PLATINUM tiers by lifetime points. Earning is **auto-hooked** into
+  `CustomerLedgerService.addEntry` (best-effort, non-blocking) so every voice/manual/WhatsApp
+  credit sale enrols and rewards the customer without a separate step. The kirana's consumer
+  relationships now live in ApnaKhata — a genuine switching cost. `/v1/loyalty/*`.
+- **ONDC storefront** ([`OndcService`](../backend/src/services/OndcService.ts) +
+  [`OndcGateway`](../backend/src/finance/OndcGateway.ts)) — `publishCatalog` lists every
+  in-stock SKU on the Open Network for Digital Commerce (pluggable Beckn seller-node gateway;
+  sandbox returns a storefront handle). `receiveOrder` lands a consumer order atomically:
+  validate against listings + stock, draw down inventory with a `SALE` movement, book a
+  `RETAIL_SALE` on the ledger (PAID), and — if the buyer's phone matches a customer — award
+  loyalty, tying the ONDC channel back into the consumer graph. `/v1/ondc/*`.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

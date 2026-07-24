@@ -274,6 +274,20 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
         [customers[name], DEMO.shopkeeper, type, amount, source],
       );
     }
+
+    // Loyalty accounts (three-sided consumer graph) with lifetime points so the
+    // roster shows real tiers: Ramesh PLATINUM, Suresh GOLD, Anita SILVER.
+    for (const [name, points, tier] of [
+      ['Ramesh Kumar', 1240, 'PLATINUM'],
+      ['Suresh Yadav', 360, 'GOLD'],
+      ['Anita Sharma', 90, 'SILVER'],
+    ] as [string, number, string][]) {
+      await db.query(
+        `INSERT INTO loyalty_accounts (customer_id, owner_id, points_balance, lifetime_points, tier)
+         VALUES ($1, $2, $3, $3, $4::loyalty_tier) ON CONFLICT (customer_id) DO NOTHING`,
+        [customers[name], DEMO.shopkeeper, points, tier],
+      );
+    }
   }
 
   // Initial credit score so the dashboard has a number on first load.
