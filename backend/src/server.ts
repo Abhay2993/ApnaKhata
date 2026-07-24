@@ -21,6 +21,7 @@ import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
 import { AccountAggregatorService } from './services/AccountAggregatorService';
 import { CashDrawerService } from './services/CashDrawerService';
+import { CreditLineService } from './services/CreditLineService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
 import { SupplyChainFinanceService } from './services/SupplyChainFinanceService';
 import { DealerReliabilityService } from './services/DealerReliabilityService';
@@ -149,7 +150,14 @@ export function buildApp(
   app.use('/v1', customerRoutes(customers));
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
   const accountAggregator = new AccountAggregatorService(db);
-  app.use('/v1', financeRoutes({ aa: accountAggregator, scf: new SupplyChainFinanceService(db, accountAggregator) }));
+  app.use(
+    '/v1',
+    financeRoutes({
+      aa: accountAggregator,
+      scf: new SupplyChainFinanceService(db, accountAggregator),
+      creditLine: new CreditLineService(db),
+    }),
+  );
   app.use(
     '/v1',
     opsRoutes({

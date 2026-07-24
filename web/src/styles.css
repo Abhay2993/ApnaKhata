@@ -734,6 +734,45 @@ body {
   opacity: 0.75;
 }
 
+/* Credit line — virtual RuPay card */
+.rupay-card {
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #1f2833 0%, #0b0c10 60%, #2a2416 100%);
+  border: 1px solid rgba(197, 160, 89, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  position: relative;
+  overflow: hidden;
+}
+.rupay-card::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 60%;
+  height: 180%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.12), transparent 70%);
+}
+.rupay-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 26px;
+}
+.rupay-issuer { font-family: var(--serif); font-size: 15px; color: var(--alabaster); letter-spacing: 0.5px; }
+.rupay-network { font-weight: 800; font-style: italic; color: var(--gold-bright); letter-spacing: 1px; }
+.rupay-number {
+  font-size: 19px;
+  letter-spacing: 3px;
+  color: var(--alabaster);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 20px;
+}
+.rupay-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+.rupay-label { font-size: 8px; letter-spacing: 1.5px; color: var(--slate); text-transform: uppercase; }
+.rupay-value { font-size: 12px; color: var(--alabaster); margin-top: 2px; }
+
 /* Working capital — best lender offer */
 .best-offer {
   border: 1px solid rgba(111, 207, 151, 0.5);

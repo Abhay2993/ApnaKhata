@@ -339,6 +339,18 @@ and working capital living on the rail is the ultimate switching cost. Real AA p
 lenders implement the same gateway contracts behind their endpoints; the sandboxes make the
 whole flow runnable and verifiable today.
 
+### 2.10 Credit-Line-on-UPI + Embedded RuPay Card
+
+NPCI enabled pre-sanctioned credit lines on UPI, and ApnaKhata is positioned to be the issuer
+of record. [`CreditLineService`](../backend/src/services/CreditLineService.ts) (migration `012`)
+sanctions a revolving line sized off the Credit Passport (tier ceiling scaled by score) and
+mints a virtual RuPay card + a credit-line VPA (`shop.xxxx@apnakhata`). `payViaUpi` is the
+crux: paying a distributor by scanning their UPI QR draws from the line, not a bank balance —
+atomically it debits the available limit, writes the ledger payment (`method = 'UPI_CREDIT'`),
+and settles the payee's dues through `apply_payment_fifo`. `repay` frees the limit back up, so
+the line revolves. Because the payment rail and the credit sit in one place, this is the
+stickiest lock-in in the stack. Routes under `/v1/credit-line/*`.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

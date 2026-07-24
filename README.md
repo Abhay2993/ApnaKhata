@@ -60,9 +60,10 @@ deployment URL to use it. Six tabs cover the whole product:
   deliveries), browse catalog with trade schemes, place an order.
 - **GST** — filing summary (GSTR-1/3B), e-invoicing, GSTR-2B input-tax-credit matching, e-way bills.
 - **More** — **Working Capital** (anchor-led supply-chain finance: connect bank via Account
-  Aggregator → competing lender offers → disburse), Analytics, Ledger (bills, liquidity-timed
-  reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer** (daily cash-vs-digital
-  reconciliation), Live Inventory, Scan & Bill.
+  Aggregator → competing lender offers → disburse), **Credit Line** (a RuPay credit line on
+  UPI — pay distributors from a sanctioned revolving line, not a bank balance), Analytics,
+  Ledger (bills, liquidity-timed reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer**
+  (daily cash-vs-digital reconciliation), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -140,6 +141,9 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/AccountAggregatorService.ts` | AA consent lifecycle (create → approve → fetch) and the stored cash-flow summary that feeds underwriting. |
 | `backend/src/services/SupplyChainFinanceService.ts` | The OCEN LSP: anchor-relationship signal + three-factor underwriting (passport + AA + anchor) → competing offers → accept, disbursing to settle the distributor's dues via FIFO. `/v1/scf/*`, `/v1/aa/*`. |
 | `web/src/screens/SupplyChainFinance.tsx` | Working Capital screen — anchor relationship, AA bank connect, competing lender offers, disbursal (live or demo). |
+| `database/migrations/012_credit_line_upi.sql` | Credit-line-on-UPI — `credit_lines` (revolving line + virtual RuPay card) and `credit_line_txns` (draws + repayments). |
+| `backend/src/services/CreditLineService.ts` | RuPay credit line on UPI — passport-sized eligibility, issue, `payViaUpi` (draw settles the payee's dues via FIFO), revolving repay. `/v1/credit-line/*`. |
+| `web/src/screens/CreditLine.tsx` | Credit Line screen — virtual RuPay card, utilisation meter, scan-and-pay a distributor, repay (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

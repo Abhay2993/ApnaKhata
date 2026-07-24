@@ -335,3 +335,44 @@ export const createLoanApplication = (body: { anchorId: string; amountRequested:
 
 export const acceptLoanOffer = (applicationId: string, offerId: string) =>
   apiPost<{ loan: DisbursedLoan; application: LoanApplication }>(`/v1/scf/applications/${applicationId}/accept`, { offerId });
+
+// --- Credit line on UPI ---
+export interface CreditLine {
+  id: string;
+  lenderName: string;
+  sanctionedLimit: number;
+  availableLimit: number;
+  utilised: number;
+  interestRatePct: number;
+  status: string;
+  card: { last4: string; network: string; expiry: string };
+  upiHandle: string | null;
+}
+
+export interface CreditLineTxn {
+  id: string;
+  direction: 'DRAW' | 'REPAYMENT';
+  amount: number;
+  counterpartyName: string | null;
+  upiRef: string;
+  createdAt: string;
+}
+
+export interface CreditLineState {
+  line: CreditLine | null;
+  eligibility?: { eligible: boolean; score: number; tier: string; offeredLimit: number; interestRatePct: number; reason: string };
+}
+
+export async function getCreditLine(): Promise<CreditLineState | null> {
+  const r = await apiGet<CreditLine & { status?: string; eligibility?: CreditLineState['eligibility'] }>('/v1/credit-line');
+  if (!r) return null;
+  if ('sanctionedLimit' in r && r.sanctionedLimit) return { line: r as CreditLine };
+  return { line: null, eligibility: r.eligibility };
+}
+
+export const issueCreditLine = (limit?: number) => apiPost<CreditLine>('/v1/credit-line/issue', limit ? { limit } : {});
+export const payViaCreditLine = (body: { payeeId?: string; payeeName?: string; amount: number }) =>
+  apiPost<{ line: CreditLine; txn: CreditLineTxn }>('/v1/credit-line/pay', body);
+export const repayCreditLine = (amount: number) =>
+  apiPost<{ line: CreditLine; txn: CreditLineTxn }>('/v1/credit-line/repay', { amount });
+export const listCreditLineTxns = () => apiGet<CreditLineTxn[]>('/v1/credit-line/transactions');
