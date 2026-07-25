@@ -168,7 +168,7 @@ export default function CreditLine() {
                   <Row
                     left={t.direction === 'DRAW' ? (t.counterpartyName ?? 'UPI payment') : 'Line repayment'}
                     sub={t.upiRef}
-                    right={<b style={{ color: t.direction === 'DRAW' ? 'var(--danger)' : '#6fcf97' }}>{t.direction === 'DRAW' ? '−' : '+'}{inr(t.amount)}</b>}
+                    right={<b style={{ color: t.direction === 'DRAW' ? 'var(--danger)' : 'var(--green)' }}>{t.direction === 'DRAW' ? '−' : '+'}{inr(t.amount)}</b>}
                   />
                 </div>
               ))}

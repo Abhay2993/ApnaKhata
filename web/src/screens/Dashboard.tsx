@@ -139,7 +139,7 @@ function ScoreArc({ score }: { score: number }) {
     <svg width={size} height={size}>
       <path
         d={arcPath(startAngle, startAngle + sweep)}
-        stroke="#2a3542"
+        stroke="#d6e4f5"
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         fill="none"

@@ -534,31 +534,44 @@ from a real evaluation.
 
 ---
 
-## 3. UI/UX Design System — "Private Banking" Aesthetic
+## 3. UI/UX Design System — "Azure & Saffron" Premium Light
 
-No neon, no clutter, no cartoon iconography. The reference is a premium investment-bank
-terminal: dark, calm, gold-accented, typographically confident.
+No neon, no clutter, no cartoon iconography. A premium, airy light theme: a light-blue canvas
+with soft ambient glows, white glass cards, a saffron primary accent and an azure secondary,
+blended in the brand gradient — calm, confident, unmistakably Indian-fintech.
 
 ### 3.1 Design Tokens
 
-| Token | Value | Usage |
+The web tokens keep their original CSS variable *names* (so every screen re-themes from one
+file, `web/src/styles.css`) but carry the new palette. Values below are the current theme.
+
+| Token (CSS var) | Value | Usage |
 | --- | --- | --- |
-| `obsidian` | `#0B0C10` | App background |
-| `charcoal` | `#1F2833` | Card surfaces |
-| `gold` | `#C5A059` | Primary accent, borders, score arc |
-| `goldBright` | `#D4AF37` | Emphasis numerals, active states |
-| `slate` | `#C0C0C0` | Secondary text, dividers |
-| `alabaster` | `#F5F5F7` | Primary typography |
-| `danger` | `#B4544B` (muted oxide red) | Critical stock / overdue — deliberately desaturated |
+| `--canvas` | `#EEF4FD` | App canvas (light blue) |
+| `--charcoal` (card) | `#FFFFFF` | White glass card surfaces |
+| `--obsidian` / `--ink` | `#0E2038` | Deep ink; text on accent fills |
+| `--gold` (saffron) | `#F2A02C` | Primary accent fills, score arc |
+| `--gold-bright` (saffron ink) | `#D97A0B` | Emphasis numerals (reads on white) |
+| `--azure` / `--sky` | `#2F83E0` / `#5AA9F0` | Secondary accent, outlines, active tab |
+| `--slate` | `#5F7290` | Secondary text |
+| `--alabaster` | `#16294A` | Primary typography (deep navy) |
+| `--green` | `#14A06E` | Positive / settled |
+| `--danger` | `#E0524F` | Critical stock / overdue |
+| `--grad-brand` | `azure → saffron` | Wordmark, active tab bar, hero accents |
+| `--grad-saffron` | saffron gradient | Primary buttons (with soft glow) |
 
 ### 3.2 Typography & Components
 
-- **Type:** Inter (UI), Playfair Display (display headings, large balance figures).
-  Balance figures render at 34–40 pt with tabular numerals.
-- **Cards:** charcoal surfaces, 1 px gold-tinted borders at 25–35% opacity, 16 px
-  radius, soft elevation; glassmorphic overlays only on the hero credit widget.
-- **Charts:** thin-stroke micro-charts (sparklines, score arc) in gold/slate on
-  transparent backgrounds — no gridline noise.
+- **Type:** Inter (UI), Playfair Display (display headings, large balance figures, the
+  gradient wordmark). Balance figures render at 34–44 pt with tabular numerals.
+- **Cards:** white surfaces, 1 px azure-tinted borders, 16–18 px radius, soft blue elevation
+  shadows; the hero cards (voice, festival, best-offer) carry a saffron→azure gradient wash.
+- **Buttons:** primary CTAs use the saffron gradient with a soft glow and a 1 px hover lift;
+  secondary actions are azure outline.
+- **The RuPay virtual card** deliberately stays a dark navy→saffron gradient (card realism)
+  even within the light theme.
+- **Charts:** thin-stroke micro-charts (sparklines, score arc) in saffron/azure on a
+  light-blue track — no gridline noise.
 - **Iconography:** 1.5 px stroke line icons only; no filled emoji-style glyphs.
 
 The reference implementation is [`mobile/src/screens/DashboardScreen.tsx`](../mobile/src/screens/DashboardScreen.tsx).

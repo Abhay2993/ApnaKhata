@@ -102,7 +102,7 @@ export default function CashDrawer() {
     setNote('Drawer closed');
   };
 
-  const varianceTone = (v: number | null) => (v === null || v === 0 ? 'var(--slate)' : v > 0 ? '#6fcf97' : 'var(--danger)');
+  const varianceTone = (v: number | null) => (v === null || v === 0 ? 'var(--slate)' : v > 0 ? 'var(--green)' : 'var(--danger)');
 
   return (
     <>
@@ -127,7 +127,7 @@ export default function CashDrawer() {
             <div className="cash-grid" style={{ marginTop: 10 }}>
               <div>
                 <span className="stat-label">Cash in</span>
-                <div className="stat-value" style={{ color: '#6fcf97' }}>{inr(drawer.cashIn)}</div>
+                <div className="stat-value" style={{ color: 'var(--green)' }}>{inr(drawer.cashIn)}</div>
               </div>
               <div>
                 <span className="stat-label">Cash out</span>
