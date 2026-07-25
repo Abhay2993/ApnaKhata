@@ -734,6 +734,22 @@ body {
   opacity: 0.75;
 }
 
+/* GST notice — auto-drafted response */
+.notice-draft {
+  margin-top: 10px;
+  padding: 12px;
+  background: rgba(11, 12, 16, 0.6);
+  border: 1px solid rgba(197, 160, 89, 0.22);
+  border-radius: 10px;
+  color: var(--slate);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  font-family: var(--sans);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
 /* Credit line — virtual RuPay card */
 .rupay-card {
   border-radius: 16px;

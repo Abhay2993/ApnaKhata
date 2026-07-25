@@ -20,9 +20,12 @@ import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
 import { AccountAggregatorService } from './services/AccountAggregatorService';
+import { AccountingService } from './services/AccountingService';
+import { CaMarketplaceService } from './services/CaMarketplaceService';
 import { CashDrawerService } from './services/CashDrawerService';
 import { CreditLineService } from './services/CreditLineService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { GstNoticeService } from './services/GstNoticeService';
 import { LoyaltyService } from './services/LoyaltyService';
 import { OndcService } from './services/OndcService';
 import { SupplyChainFinanceService } from './services/SupplyChainFinanceService';
@@ -55,6 +58,7 @@ import { SchemeService } from './services/SchemeService';
 import { UpiCollectionService } from './services/UpiCollectionService';
 import { WarehouseService } from './services/WarehouseService';
 import { analyticsRoutes } from './http/analyticsRoutes';
+import { booksRoutes } from './http/booksRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
 import { consumerRoutes } from './http/consumerRoutes';
 import { creditRoutes } from './http/creditRoutes';
@@ -154,6 +158,15 @@ export function buildApp(
   app.use('/v1', analyticsRoutes(new AnalyticsService(db), new PeerBenchmarkService(db)));
   app.use('/v1', customerRoutes(customers));
   app.use('/v1', consumerRoutes({ loyalty, ondc: new OndcService(db, undefined, loyalty) }));
+  const caMarketplace = new CaMarketplaceService(db);
+  app.use(
+    '/v1',
+    booksRoutes({
+      accounting: new AccountingService(db),
+      cas: caMarketplace,
+      notices: new GstNoticeService(db, undefined, caMarketplace),
+    }),
+  );
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
   const accountAggregator = new AccountAggregatorService(db);
   app.use(

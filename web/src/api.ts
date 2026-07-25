@@ -423,6 +423,61 @@ export interface OndcPublishResult {
   listings: OndcListing[];
 }
 
+// --- Books: auto-accounting + CA marketplace + GST notices ---
+export interface ProfitAndLoss {
+  period: { from: string; to: string };
+  revenue: number;
+  unitsSold: number;
+  costOfGoodsSold: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  expenses: { cashExpenses: number; financingCost: number; total: number };
+  netProfit: number;
+}
+
+export interface BalanceSheet {
+  asOf: string;
+  assets: { cash: number; inventory: number; receivables: number; total: number };
+  liabilities: { payables: number; creditLineDrawn: number; loans: number; total: number };
+  equity: number;
+}
+
+export interface CaProfessional {
+  id: string;
+  name: string;
+  firm: string | null;
+  city: string | null;
+  specializations: string[];
+  rating: number;
+  minFee: number;
+  maxFee: number;
+  languages: string[];
+}
+
+export interface GstNotice {
+  id: string;
+  noticeType: string;
+  referenceNo: string | null;
+  period: string | null;
+  amountInvolved: number;
+  dueDate: string | null;
+  status: string;
+  description: string | null;
+  responseDraft: string | null;
+  assignedCaId: string | null;
+}
+
+export const fetchPnl = () => apiGet<ProfitAndLoss>('/v1/accounting/pnl');
+export const fetchBalanceSheet = () => apiGet<BalanceSheet>('/v1/accounting/balance-sheet');
+export const fetchCas = (specialization?: string) =>
+  apiGet<CaProfessional[]>(`/v1/cas${specialization ? `?specialization=${specialization}` : ''}`);
+export const engageCa = (caId: string, serviceType: string) =>
+  apiPost<{ id: string; caName?: string; feeQuoted: number | null; status: string }>(`/v1/cas/${caId}/engage`, { serviceType });
+export const fetchGstNotices = () => apiGet<GstNotice[]>('/v1/gst-notices');
+export const draftNoticeResponse = (id: string) => apiPost<GstNotice>(`/v1/gst-notices/${id}/draft`, {});
+export const assignNotice = (id: string, caId: string) =>
+  apiPost<{ notice: GstNotice; engagementId: string }>(`/v1/gst-notices/${id}/assign`, { caId });
+
 export const fetchLoyalty = () => apiGet<LoyaltyMember[]>('/v1/loyalty');
 export const publishToOndc = () => apiPost<OndcPublishResult>('/v1/ondc/publish', {});
 export const getOndcListings = () => apiGet<OndcListing[]>('/v1/ondc/listings');

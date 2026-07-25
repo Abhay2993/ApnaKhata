@@ -65,7 +65,9 @@ deployment URL to use it. Six tabs cover the whole product:
   Ledger (bills, liquidity-timed reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer**
   (daily cash-vs-digital reconciliation), **Benchmarks** (anonymised peer/consortium
   intelligence — margin percentile, velocity lags, assortment gaps), **Storefront** (publish
-  live inventory to **ONDC** + a customer **loyalty program**), Live Inventory, Scan & Bill.
+  live inventory to **ONDC** + a customer **loyalty program**), **Books & CA** (auto-generated
+  P&L + balance sheet, a chartered-accountant marketplace, and GST-notice handling with an
+  auto-drafted reply), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -152,6 +154,11 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/LoyaltyService.ts` | Points program tied to the khata — earn on credit purchases (auto-hooked into `CustomerLedgerService`), redeem, tiers. `/v1/loyalty/*`. |
 | `backend/src/services/OndcService.ts` + `backend/src/finance/OndcGateway.ts` | Publishes inventory to ONDC (pluggable seller-node gateway); consumer orders draw down stock, book a retail sale, and earn loyalty for matched customers. `/v1/ondc/*`. |
 | `web/src/screens/Storefront.tsx` | Storefront screen — ONDC publish + incoming orders, and the loyalty roster with tiers (live or demo). |
+| `database/migrations/014_accounting_ca_gst.sql` | CA marketplace (`ca_professionals`, `ca_engagements`) + GST-notice handling (`gst_notices`). |
+| `backend/src/services/AccountingService.ts` | Auto-accounting — a P&L (trading account from stock movements) and balance sheet generated from existing data, no bookkeeping. `/v1/accounting/*`. |
+| `backend/src/services/CaMarketplaceService.ts` | Chartered-accountant directory + engagement tracking. `/v1/cas/*`. |
+| `backend/src/services/GstNoticeService.ts` | GST notices with an auto-drafted response grounded in the shop's own reconciled GST numbers, and one-tap assignment to a CA. `/v1/gst-notices/*`. |
+| `web/src/screens/Books.tsx` | Books & CA screen — auto P&L + balance sheet, GST notices with auto-draft, and the CA marketplace (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

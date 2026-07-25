@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Header } from '../components';
 import Analytics from './Analytics';
 import Benchmarks from './Benchmarks';
+import Books from './Books';
 import CashDrawer from './CashDrawer';
 import CreditLine from './CreditLine';
 import Ledger from './Ledger';
@@ -15,11 +16,12 @@ import Scan from './Scan';
 import Storefront from './Storefront';
 import SupplyChainFinance from './SupplyChainFinance';
 
-type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks' | 'storefront';
+type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks' | 'storefront' | 'books';
 
 const TILES: { key: Sub; title: string; sub: string; icon: string }[] = [
   { key: 'scf', title: 'Working Capital', sub: 'Anchor-led loans, lender offers', icon: '🏦' },
   { key: 'creditline', title: 'Credit Line', sub: 'RuPay line on UPI', icon: '💳' },
+  { key: 'books', title: 'Books & CA', sub: 'Auto P&L, GST notices, CAs', icon: '📚' },
   { key: 'storefront', title: 'Storefront', sub: 'ONDC + loyalty program', icon: '🛒' },
   { key: 'analytics', title: 'Analytics', sub: 'Profit, margins, health', icon: '📈' },
   { key: 'benchmarks', title: 'Benchmarks', sub: 'How you compare to peers', icon: '📊' },
@@ -41,6 +43,7 @@ export default function More() {
         {open === 'analytics' && <Analytics />}
         {open === 'benchmarks' && <Benchmarks />}
         {open === 'storefront' && <Storefront />}
+        {open === 'books' && <Books />}
         {open === 'ledger' && <Ledger />}
         {open === 'cash' && <CashDrawer />}
         {open === 'live' && <LiveInventory />}

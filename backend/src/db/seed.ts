@@ -290,6 +290,30 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     }
   }
 
+  // CA marketplace directory + a demo GST notice so Books has content.
+  await db.query(
+    `
+    INSERT INTO ca_professionals (name, firm, membership_no, city, specializations, rating, min_fee, max_fee, languages)
+    SELECT * FROM (VALUES
+      ('CA Meera Iyer','Iyer & Associates','123456','Pune', ARRAY['GST','NOTICE','ITR'], 4.8, 2500, 8000, ARRAY['English','Hindi','Marathi']),
+      ('CA Rohan Shah','Shah Fintax LLP','234567','Pune', ARRAY['GST','AUDIT'], 4.6, 3000, 12000, ARRAY['English','Gujarati','Hindi']),
+      ('CA Anjali Verma','Verma & Co','345678','Mumbai', ARRAY['NOTICE','GST','ITR'], 4.9, 3500, 15000, ARRAY['English','Hindi']),
+      ('CA Karthik Rao','Rao Compliance','456789','Bengaluru', ARRAY['GST','ITR'], 4.5, 2000, 9000, ARRAY['English','Kannada','Hindi'])
+    ) AS v
+    WHERE NOT EXISTS (SELECT 1 FROM ca_professionals)
+    `,
+  );
+  if (Number((await db.query(`SELECT COUNT(*) n FROM gst_notices WHERE owner_id = $1`, [DEMO.shopkeeper])).rows[0].n) === 0) {
+    await db.query(
+      `
+      INSERT INTO gst_notices (owner_id, notice_type, reference_no, period, amount_involved, due_date, description)
+      VALUES ($1,'ITC_MISMATCH','ZA2707240012345','2026-05',18400, CURRENT_DATE + 12,
+              'ITC claimed in GSTR-3B exceeds auto-populated GSTR-2B for the period — reconcile and respond.')
+      `,
+      [DEMO.shopkeeper],
+    );
+  }
+
   // Initial credit score so the dashboard has a number on first load.
   await new CreditScoreEvaluator(db).evaluate(DEMO.shopkeeper);
 

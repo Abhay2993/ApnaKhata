@@ -382,6 +382,29 @@ third side no khata competitor reaches (migration `013`).
   `RETAIL_SALE` on the ledger (PAID), and — if the buyer's phone matches a customer — award
   loyalty, tying the ONDC channel back into the consumer graph. `/v1/ondc/*`.
 
+### 2.13 System of Record — Auto-Accounting, CA Marketplace, GST Notices
+
+The compliance-depth moat: once a shop's books and filings live here, ripping them out is
+expensive (migration `014`).
+
+- **Auto-accounting** ([`AccountingService`](../backend/src/services/AccountingService.ts)) —
+  a **Profit & Loss** and **Balance Sheet** generated from data already captured, no manual
+  bookkeeping. The P&L is a *trading account from stock movements*: revenue at retail and COGS
+  at wholesale come from the **same** `SALE` movements, so gross profit is always the real
+  markup (no phantom mismatch), less cash expenses and accrued financing cost. The balance
+  sheet folds cash (drawer), inventory value, and receivables (consumer udhaar + B2B) against
+  payables, credit-line drawn, and outstanding loans; equity = assets − liabilities. Read-only.
+- **CA marketplace** ([`CaMarketplaceService`](../backend/src/services/CaMarketplaceService.ts))
+  — a searchable directory of chartered accountants (by specialization/city) and tracked
+  engagements (GST filing, ITR, audit, notice response).
+- **GST-notice handling** ([`GstNoticeService`](../backend/src/services/GstNoticeService.ts))
+  — the hard part of a notice is knowing how to reply. Because ApnaKhata holds the GST data,
+  `draftResponse` **auto-drafts a reply grounded in the shop's own reconciled numbers** (for
+  an ITC mismatch it pulls eligible vs at-risk ITC from `Gstr2bReconciliationService`),
+  formatted as a proper officer reply with the shop's GSTIN and period. `assignToCa` hands the
+  notice to a marketplace CA and opens a linked engagement. Notices move OPEN → DRAFTED →
+  RESPONDED → RESOLVED.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).
