@@ -67,7 +67,8 @@ deployment URL to use it. Six tabs cover the whole product:
   intelligence — margin percentile, velocity lags, assortment gaps), **Storefront** (publish
   live inventory to **ONDC** + a customer **loyalty program**), **Books & CA** (auto-generated
   P&L + balance sheet, a chartered-accountant marketplace, and GST-notice handling with an
-  auto-drafted reply), Live Inventory, Scan & Bill.
+  auto-drafted reply), **Fraud Shield** (a graph-derived trust score + circular-trading /
+  structuring / templated-billing detection across the network), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -159,6 +160,9 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/services/CaMarketplaceService.ts` | Chartered-accountant directory + engagement tracking. `/v1/cas/*`. |
 | `backend/src/services/GstNoticeService.ts` | GST notices with an auto-drafted response grounded in the shop's own reconciled GST numbers, and one-tap assignment to a CA. `/v1/gst-notices/*`. |
 | `web/src/screens/Books.tsx` | Books & CA screen — auto P&L + balance sheet, GST notices with auto-draft, and the CA marketplace (live or demo). |
+| `database/migrations/015_fraud_graph.sql` | `fraud_cases` — the triage workflow on top of read-only graph detection. |
+| `backend/src/services/FraudGraphService.ts` | Fraud & trust graph — circular-trade ring detection, structuring / templated-billing / dispute-ratio flags, a 0–100 trust score, and case triage. `/v1/fraud/*`. |
+| `web/src/screens/FraudShield.tsx` | Fraud Shield screen — your trust score, network ring alerts, high-risk entities, and case workflow (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

@@ -478,6 +478,49 @@ export const draftNoticeResponse = (id: string) => apiPost<GstNotice>(`/v1/gst-n
 export const assignNotice = (id: string, caId: string) =>
   apiPost<{ notice: GstNotice; engagementId: string }>(`/v1/gst-notices/${id}/assign`, { caId });
 
+// --- Fraud & trust graph ---
+export interface FraudFlag {
+  type: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  label: string;
+  detail: string;
+}
+export interface TradeRing {
+  members: { id: string; name: string }[];
+  edges: { from: string; to: string; total: number; invoices: number }[];
+  totalValue: number;
+  circularity: number;
+  suspicion: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+export interface TrustReport {
+  entityId: string;
+  entityName: string;
+  trustScore: number;
+  band: 'TRUSTED' | 'MONITOR' | 'ELEVATED' | 'HIGH_RISK';
+  flags: FraudFlag[];
+  rings?: TradeRing[];
+}
+export interface NetworkAlerts {
+  rings: TradeRing[];
+  riskyEntities: TrustReport[];
+}
+export interface FraudCase {
+  id: string;
+  caseType: string;
+  severity: string;
+  subjectLabel: string;
+  status: string;
+  createdAt: string;
+}
+
+export const fetchFraudScan = () => apiGet<TrustReport>('/v1/fraud/scan');
+export const fetchNetworkAlerts = () => apiGet<NetworkAlerts>('/v1/fraud/alerts');
+export const fetchFraudCases = () => apiGet<FraudCase[]>('/v1/fraud/cases');
+export const raiseFraudCase = (body: { caseType: string; severity?: string; subjectLabel: string }) =>
+  apiPost<FraudCase>('/v1/fraud/cases', body);
+export const resolveFraudCase = (id: string, status: string) =>
+  apiPost<FraudCase>(`/v1/fraud/cases/${id}/status`, { status });
+
 export const fetchLoyalty = () => apiGet<LoyaltyMember[]>('/v1/loyalty');
 export const publishToOndc = () => apiPost<OndcPublishResult>('/v1/ondc/publish', {});
 export const getOndcListings = () => apiGet<OndcListing[]>('/v1/ondc/listings');

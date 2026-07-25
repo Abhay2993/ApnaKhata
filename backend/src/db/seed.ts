@@ -314,6 +314,57 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     );
   }
 
+  // Fraud-graph demo: an ISOLATED subgraph of three shell traders that round-
+  // trip invoices in a loop (Alpha → Beta → Gamma → Alpha) — classic circular
+  // trading — plus structuring just under the ₹50k e-way-bill threshold and a
+  // duplicated invoice number. Kept separate from the real cast so it never
+  // taints their scores; the fraud detector surfaces it as a network alert.
+  const RING = [
+    { id: 'ffffffff-0000-4000-8000-000000000001', name: 'Alpha Traders', gstin: '27AAAFA1111A1Z1' },
+    { id: 'ffffffff-0000-4000-8000-000000000002', name: 'Beta Enterprises', gstin: '27AAAFB2222B1Z2' },
+    { id: 'ffffffff-0000-4000-8000-000000000003', name: 'Gamma Trading', gstin: '27AAAFC3333C1Z3' },
+  ];
+  if (Number((await db.query(`SELECT COUNT(*) n FROM users WHERE id = $1`, [RING[0].id])).rows[0].n) === 0) {
+    let fp = 9830000021;
+    for (const t of RING) {
+      await db.query(
+        `INSERT INTO users (id, role, business_name, owner_name, phone, email, password_hash, gstin, city, state_code)
+         VALUES ($1,'DISTRIBUTOR',$2,$2,$5,$3,$4,$6,'Pune','27') ON CONFLICT (id) DO NOTHING`,
+        [t.id, t.name, `${t.name.split(' ')[0].toLowerCase()}@shell.in`, pw, `+91${fp++}`, t.gstin],
+      );
+    }
+    // The round-trip loop: three balanced invoices ~₹90k circling back.
+    const loop: [string, string, number][] = [
+      [RING[0].id, RING[1].id, 92000],
+      [RING[1].id, RING[2].id, 94500],
+      [RING[2].id, RING[0].id, 93000],
+    ];
+    let li = 0;
+    for (const [from, to, amt] of loop) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 20, now() - interval '25 days')`,
+        [from, to, `RING-${li++}`, amt],
+      );
+    }
+    // Alpha structures three purchases just under the e-way-bill threshold.
+    for (const [amt, n] of [[49000, 1], [48500, 2], [49500, 3]] as [number, number][]) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 15, now() - interval '18 days')`,
+        [RING[1].id, RING[0].id, `STR-${n}`, amt],
+      );
+    }
+    // Gamma issues three invoices of the identical amount — templated billing.
+    for (let k = 1; k <= 3; k++) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 10, now() - interval '12 days')`,
+        [RING[2].id, RING[1].id, `GT-88-${k}`, 61000],
+      );
+    }
+  }
+
   // Initial credit score so the dashboard has a number on first load.
   await new CreditScoreEvaluator(db).evaluate(DEMO.shopkeeper);
 

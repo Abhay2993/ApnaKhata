@@ -10,13 +10,14 @@ import Benchmarks from './Benchmarks';
 import Books from './Books';
 import CashDrawer from './CashDrawer';
 import CreditLine from './CreditLine';
+import FraudShield from './FraudShield';
 import Ledger from './Ledger';
 import LiveInventory from './LiveInventory';
 import Scan from './Scan';
 import Storefront from './Storefront';
 import SupplyChainFinance from './SupplyChainFinance';
 
-type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks' | 'storefront' | 'books';
+type Sub = 'analytics' | 'ledger' | 'live' | 'scan' | 'cash' | 'scf' | 'creditline' | 'benchmarks' | 'storefront' | 'books' | 'fraud';
 
 const TILES: { key: Sub; title: string; sub: string; icon: string }[] = [
   { key: 'scf', title: 'Working Capital', sub: 'Anchor-led loans, lender offers', icon: '🏦' },
@@ -25,6 +26,7 @@ const TILES: { key: Sub; title: string; sub: string; icon: string }[] = [
   { key: 'storefront', title: 'Storefront', sub: 'ONDC + loyalty program', icon: '🛒' },
   { key: 'analytics', title: 'Analytics', sub: 'Profit, margins, health', icon: '📈' },
   { key: 'benchmarks', title: 'Benchmarks', sub: 'How you compare to peers', icon: '📊' },
+  { key: 'fraud', title: 'Fraud Shield', sub: 'Trust score, ring detection', icon: '🛡️' },
   { key: 'ledger', title: 'Ledger', sub: 'Bills, reminders, EMI, AutoPay', icon: '📒' },
   { key: 'cash', title: 'Cash Drawer', sub: 'Daily cash vs digital close', icon: '💵' },
   { key: 'live', title: 'Live Inventory', sub: 'Real-time stock from billing', icon: '📦' },
@@ -44,6 +46,7 @@ export default function More() {
         {open === 'benchmarks' && <Benchmarks />}
         {open === 'storefront' && <Storefront />}
         {open === 'books' && <Books />}
+        {open === 'fraud' && <FraudShield />}
         {open === 'ledger' && <Ledger />}
         {open === 'cash' && <CashDrawer />}
         {open === 'live' && <LiveInventory />}

@@ -405,6 +405,30 @@ expensive (migration `014`).
   notice to a marketplace CA and opens a linked engagement. Notices move OPEN → DRAFTED →
   RESPONDED → RESOLVED.
 
+### 2.14 Fraud & Trust Graph
+
+The transaction ledger is a directed graph (sender → receiver of B2B invoices), and fraud
+shows up as *structure* in it. [`FraudGraphService`](../backend/src/services/FraudGraphService.ts)
+(migration `015`) walks that graph and distils a 0–100 **trust score** that complements the
+Credit Passport — a signal both lenders (§2.9) and the marketplace can consume.
+
+- **Circular-trade rings** — the headline detector. It loads the B2B edge set, then enumerates
+  simple cycles (each counted once from its smallest-id member to dedupe rotations, bounded to
+  length ≤ 4). For each ring it computes a **circularity** = min/max edge value: a balanced
+  loop (A→B→C→A with near-equal amounts) is round-tripping to inflate turnover or manufacture
+  fake ITC, and scores HIGH.
+- **Structuring** — repeated invoices in [₹45k, ₹50k), i.e. just under the e-way-bill
+  threshold, to avoid documentation.
+- **Templated billing** — the same counterparty invoiced the identical amount ≥ 3 times, a
+  hallmark of fabricated no-goods supply (the schema's `UNIQUE(sender_id, invoice_number)`
+  already makes literal duplicate numbers impossible, so this is the meaningful variant).
+- **Dispute ratio** — an issuer whose invoices are disputed at an unusually high rate.
+
+`scan` returns the caller's own trust + any rings it belongs to; `entityTrust` scores **any**
+entity (the lender-facing lookup); `networkAlerts` surfaces rings plus the risky entities in
+them. Findings can be promoted to `fraud_cases` and worked OPEN → REVIEWING → CONFIRMED /
+DISMISSED. `/v1/fraud/*`.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).

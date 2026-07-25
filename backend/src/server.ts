@@ -25,6 +25,7 @@ import { CaMarketplaceService } from './services/CaMarketplaceService';
 import { CashDrawerService } from './services/CashDrawerService';
 import { CreditLineService } from './services/CreditLineService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { FraudGraphService } from './services/FraudGraphService';
 import { GstNoticeService } from './services/GstNoticeService';
 import { LoyaltyService } from './services/LoyaltyService';
 import { OndcService } from './services/OndcService';
@@ -64,6 +65,7 @@ import { consumerRoutes } from './http/consumerRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { customerRoutes } from './http/customerRoutes';
 import { financeRoutes } from './http/financeRoutes';
+import { fraudRoutes } from './http/fraudRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
 import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
@@ -167,6 +169,7 @@ export function buildApp(
       notices: new GstNoticeService(db, undefined, caMarketplace),
     }),
   );
+  app.use('/v1', fraudRoutes(new FraudGraphService(db)));
   app.use('/v1', syncRoutes(new SyncService(db, customers)));
   const accountAggregator = new AccountAggregatorService(db);
   app.use(
