@@ -251,6 +251,184 @@ the customer owes the shop.
   production; a recording stub in the sandbox). Production use needs an approved WhatsApp
   Business Account and message templates.
 
+### 2.7 Offline-First Sync (grow-only-set CRDT)
+
+Connectivity in kirana India is patchy, so the app must capture entries offline and
+reconcile later. The customer khata is append-only, which makes this tractable without
+conflict resolution: every entry is an immutable fact identified by a client-generated
+`opId`. Merging two devices' logs is a **set-union** — idempotent, commutative,
+associative — a grow-only-set CRDT; the balance is a fold over the merged set. Migration
+`009` adds a global `sync_seq` cursor to the synced tables and a `client_operations` ledger.
+
+- **Push** (`POST /v1/sync/push`) — a device flushes its outbox (a batch of ops). Each op is
+  applied **at most once**: the handler claims the `opId` with `INSERT … ON CONFLICT DO
+  NOTHING`; a row that's already there is a replay and returns `DUPLICATE` with the original
+  entity ref, touching nothing. So an at-least-once client that retries after a dropped
+  response never double-posts (proven: replaying a batch leaves the balance unchanged). A
+  rejected op (bad amount) never poisons the rest of the batch.
+- **Pull** (`GET /v1/sync/pull?since=`) — returns every customer and entry with
+  `server_seq > since`, plus the new cursor, so a second device merges only the delta.
+- **Client** ([`web/src/screens/Khata.tsx`](../web/src/screens/Khata.tsx)) — when a live POST
+  fails, the entry is parsed locally, queued in a `localStorage` outbox (each with a UUID
+  `opId`), and applied optimistically; a "pending sync" badge shows the queue depth. On the
+  `online` event (and on mount) the outbox flushes through push and clears.
+
+### 2.8 Cash Drawer, AutoPay, Smart Reminders, Reliability & Festival Planner
+
+Five features that build on data the ledger already holds:
+
+- **Cash-drawer reconciliation** ([`CashDrawerService`](../backend/src/services/CashDrawerService.ts))
+  — the daily cash-vs-digital close: opening float, cash in/out, `expected = opening + Σin −
+  Σout`, and `variance = counted − expected` at close. Migration `010`.
+- **UPI AutoPay / e-mandate** ([`UpiMandateService`](../backend/src/services/UpiMandateService.ts))
+  — recurring distributor payments: create → authorize (a generated UMN) → execute a debit
+  that inserts a payment and settles it through `apply_payment_fifo`, so AutoPay reconciles
+  exactly like a manual UPI collection. A nightly `autopay-mandates` job runs due debits,
+  capped at the payer's actual outstanding dues.
+- **Liquidity-timed reminders** ([`SmartReminderService`](../backend/src/services/SmartReminderService.ts))
+  — learns each debtor's typical pay-day-of-month from payment history and suggests sending
+  the nudge just before it, rather than on a blind fixed cadence. Read-only.
+- **Dealer reliability rating** ([`DealerReliabilityService`](../backend/src/services/DealerReliabilityService.ts))
+  — a 0–5★ marketplace trust signal from `0.40·(1−disputeRate) + 0.35·onTimeRate +
+  0.25·completionRate`, thin-file damped toward a neutral 3.5 until ~10 observations, folded
+  into dealer search results.
+- **Festival demand planner** ([`FestivalPlannerService`](../backend/src/services/FestivalPlannerService.ts))
+  — surfaces the forecaster's festival seasonality as advice: for each upcoming festival it
+  combines the stored per-item forecast with a festival uplift and the supplier lead time
+  into a stock-up list with an order-by date.
+
+### 2.9 Anchor-Led Supply-Chain Finance (OCEN LSP + Account Aggregator)
+
+The deepest moat: ApnaKhata holds the one thing lenders can't buy — the verified
+distributor↔retailer relationship and its repayment history — and turns it into a lending
+rail. It acts as an **OCEN Loan Service Provider**, underwriting from three signals no
+competitor holds together and broadcasting one application to a panel of lenders that bid
+against each other. Migration `011`; gateways under [`backend/src/finance/`](../backend/src/finance/).
+
+- **Account Aggregator (Sahamati/AA)** — the consent lifecycle
+  ([`AccountAggregatorService`](../backend/src/services/AccountAggregatorService.ts)):
+  `createConsent` → the borrower approves in their AA app → `fetchFinancials` pulls a
+  statement summary (monthly inflow/outflow, average and minimum balance, cheque bounces,
+  inflow volatility). The sandbox gateway is deliberately **not random** — it derives a
+  coherent cash-flow profile from the borrower's own ledger throughput, so demo underwriting
+  is consistent with the rest of the app. This moves underwriting from score-only to
+  cash-flow-based.
+- **Anchor relationship** — the proprietary signal
+  ([`SupplyChainFinanceService.getAnchorRelationship`](../backend/src/services/SupplyChainFinanceService.ts)):
+  for a specific distributor, the retailer's invoice count, total trade, relationship tenure,
+  and **on-time settlement rate** (computed from `payment_allocations` vs `due_date`) fold
+  into a 0–1 strength. A strong relationship raises the grade, the limit, and — via each
+  lender's anchor discount — the rate.
+- **Three-factor underwriting** — `underwrite` combines the Credit Passport score (45%), the
+  anchor strength (25%), and the AA cash-flow score (30%) into a composite → risk grade A–D
+  and a recommended limit (a blend of ledger throughput and AA inflow, boosted by the anchor,
+  capped by grade). Without AA connected it falls back to score (65%) + anchor (35%) and the
+  rationale nudges the borrower to connect a bank.
+- **OCEN offers** ([`OcenLenderNetwork`](../backend/src/finance/OcenLenderNetwork.ts)) — a
+  panel (development bank, private bank, two NBFC/fintechs) each bids independently based on
+  its risk appetite, rate card, ticket ceiling and anchor discount; only lenders whose policy
+  admits the grade return an offer, sorted best-rate first — a genuine competitive marketplace.
+- **Disbursal closes the loop** — `acceptOffer` marks the winning offer `ACCEPTED` (others
+  `DECLINED`), and when the application is anchor-led it routes the proceeds to settle the
+  retailer's outstanding dues to that distributor through `apply_payment_fifo`: the retailer's
+  working capital pays the supplier and the debt moves to the lender, all in one transaction.
+
+Why it's defensible: the anchor relationship and repayment graph are proprietary and compound
+with every transaction (a data network effect), the AA/OCEN integration is a regulatory moat,
+and working capital living on the rail is the ultimate switching cost. Real AA providers and
+lenders implement the same gateway contracts behind their endpoints; the sandboxes make the
+whole flow runnable and verifiable today.
+
+### 2.10 Credit-Line-on-UPI + Embedded RuPay Card
+
+NPCI enabled pre-sanctioned credit lines on UPI, and ApnaKhata is positioned to be the issuer
+of record. [`CreditLineService`](../backend/src/services/CreditLineService.ts) (migration `012`)
+sanctions a revolving line sized off the Credit Passport (tier ceiling scaled by score) and
+mints a virtual RuPay card + a credit-line VPA (`shop.xxxx@apnakhata`). `payViaUpi` is the
+crux: paying a distributor by scanning their UPI QR draws from the line, not a bank balance —
+atomically it debits the available limit, writes the ledger payment (`method = 'UPI_CREDIT'`),
+and settles the payee's dues through `apply_payment_fifo`. `repay` frees the limit back up, so
+the line revolves. Because the payment rail and the credit sit in one place, this is the
+stickiest lock-in in the stack. Routes under `/v1/credit-line/*`.
+
+### 2.11 Peer Benchmarking / Consortium Intelligence
+
+The pure-data moat: [`PeerBenchmarkService`](../backend/src/services/PeerBenchmarkService.ts)
+compares a shop against a cohort of peers (same state, falling back to all shopkeepers) using
+inventory + `stock_movements` that already flow through the network — comparisons a new
+entrant simply cannot reproduce without scale. It returns three things, all **aggregates**
+(no peer is ever named): a **margin percentile** (sales-weighted gross margin vs the peer
+median), **velocity lags** (SKUs where the shop's weekly units trail the peer median by >10%),
+and **assortment gaps** (SKUs carried by ≥50% of peers but not this shop, with the typical
+peer weekly demand). From these it writes plain-language insights ("peers sell 60% more
+Parle-G than you"; "5 fast-movers peers carry that you don't"). `GET /v1/analytics/benchmarks`.
+
+### 2.12 Three-Sided Consumer Graph — Loyalty + ONDC
+
+The B2B network connects distributor↔retailer; this extends it to the **end consumer**, a
+third side no khata competitor reaches (migration `013`).
+
+- **Loyalty** ([`LoyaltyService`](../backend/src/services/LoyaltyService.ts)) — points on the
+  customer khata: 1 pt / ₹50 of credit purchase, redeemable 1 pt = ₹1, with SILVER/GOLD/
+  PLATINUM tiers by lifetime points. Earning is **auto-hooked** into
+  `CustomerLedgerService.addEntry` (best-effort, non-blocking) so every voice/manual/WhatsApp
+  credit sale enrols and rewards the customer without a separate step. The kirana's consumer
+  relationships now live in ApnaKhata — a genuine switching cost. `/v1/loyalty/*`.
+- **ONDC storefront** ([`OndcService`](../backend/src/services/OndcService.ts) +
+  [`OndcGateway`](../backend/src/finance/OndcGateway.ts)) — `publishCatalog` lists every
+  in-stock SKU on the Open Network for Digital Commerce (pluggable Beckn seller-node gateway;
+  sandbox returns a storefront handle). `receiveOrder` lands a consumer order atomically:
+  validate against listings + stock, draw down inventory with a `SALE` movement, book a
+  `RETAIL_SALE` on the ledger (PAID), and — if the buyer's phone matches a customer — award
+  loyalty, tying the ONDC channel back into the consumer graph. `/v1/ondc/*`.
+
+### 2.13 System of Record — Auto-Accounting, CA Marketplace, GST Notices
+
+The compliance-depth moat: once a shop's books and filings live here, ripping them out is
+expensive (migration `014`).
+
+- **Auto-accounting** ([`AccountingService`](../backend/src/services/AccountingService.ts)) —
+  a **Profit & Loss** and **Balance Sheet** generated from data already captured, no manual
+  bookkeeping. The P&L is a *trading account from stock movements*: revenue at retail and COGS
+  at wholesale come from the **same** `SALE` movements, so gross profit is always the real
+  markup (no phantom mismatch), less cash expenses and accrued financing cost. The balance
+  sheet folds cash (drawer), inventory value, and receivables (consumer udhaar + B2B) against
+  payables, credit-line drawn, and outstanding loans; equity = assets − liabilities. Read-only.
+- **CA marketplace** ([`CaMarketplaceService`](../backend/src/services/CaMarketplaceService.ts))
+  — a searchable directory of chartered accountants (by specialization/city) and tracked
+  engagements (GST filing, ITR, audit, notice response).
+- **GST-notice handling** ([`GstNoticeService`](../backend/src/services/GstNoticeService.ts))
+  — the hard part of a notice is knowing how to reply. Because ApnaKhata holds the GST data,
+  `draftResponse` **auto-drafts a reply grounded in the shop's own reconciled numbers** (for
+  an ITC mismatch it pulls eligible vs at-risk ITC from `Gstr2bReconciliationService`),
+  formatted as a proper officer reply with the shop's GSTIN and period. `assignToCa` hands the
+  notice to a marketplace CA and opens a linked engagement. Notices move OPEN → DRAFTED →
+  RESPONDED → RESOLVED.
+
+### 2.14 Fraud & Trust Graph
+
+The transaction ledger is a directed graph (sender → receiver of B2B invoices), and fraud
+shows up as *structure* in it. [`FraudGraphService`](../backend/src/services/FraudGraphService.ts)
+(migration `015`) walks that graph and distils a 0–100 **trust score** that complements the
+Credit Passport — a signal both lenders (§2.9) and the marketplace can consume.
+
+- **Circular-trade rings** — the headline detector. It loads the B2B edge set, then enumerates
+  simple cycles (each counted once from its smallest-id member to dedupe rotations, bounded to
+  length ≤ 4). For each ring it computes a **circularity** = min/max edge value: a balanced
+  loop (A→B→C→A with near-equal amounts) is round-tripping to inflate turnover or manufacture
+  fake ITC, and scores HIGH.
+- **Structuring** — repeated invoices in [₹45k, ₹50k), i.e. just under the e-way-bill
+  threshold, to avoid documentation.
+- **Templated billing** — the same counterparty invoiced the identical amount ≥ 3 times, a
+  hallmark of fabricated no-goods supply (the schema's `UNIQUE(sender_id, invoice_number)`
+  already makes literal duplicate numbers impossible, so this is the meaningful variant).
+- **Dispute ratio** — an issuer whose invoices are disputed at an unusually high rate.
+
+`scan` returns the caller's own trust + any rings it belongs to; `entityTrust` scores **any**
+entity (the lender-facing lookup); `networkAlerts` surfaces rings plus the risky entities in
+them. Findings can be promoted to `fraud_cases` and worked OPEN → REVIEWING → CONFIRMED /
+DISMISSED. `/v1/fraud/*`.
+
 ### 2.3 Intelligent Inventory & ML Stock Forecasting
 
 Implemented in [`services/forecasting/forecast.py`](../services/forecasting/forecast.py).
@@ -356,31 +534,45 @@ from a real evaluation.
 
 ---
 
-## 3. UI/UX Design System — "Private Banking" Aesthetic
+## 3. UI/UX Design System — "Azure & Saffron" Premium Light
 
-No neon, no clutter, no cartoon iconography. The reference is a premium investment-bank
-terminal: dark, calm, gold-accented, typographically confident.
+No neon, no clutter, no cartoon iconography. A premium, airy light theme: a light-blue canvas
+with soft ambient glows, white glass cards, a saffron primary accent and an azure secondary,
+blended in the brand gradient — calm, confident, unmistakably Indian-fintech.
 
 ### 3.1 Design Tokens
 
-| Token | Value | Usage |
+The web tokens keep their original CSS variable *names* (so every screen re-themes from one
+file, `web/src/styles.css`) but carry the new palette. Values below are the current theme.
+
+| Token (CSS var) | Value | Usage |
 | --- | --- | --- |
-| `obsidian` | `#0B0C10` | App background |
-| `charcoal` | `#1F2833` | Card surfaces |
-| `gold` | `#C5A059` | Primary accent, borders, score arc |
-| `goldBright` | `#D4AF37` | Emphasis numerals, active states |
-| `slate` | `#C0C0C0` | Secondary text, dividers |
-| `alabaster` | `#F5F5F7` | Primary typography |
-| `danger` | `#B4544B` (muted oxide red) | Critical stock / overdue — deliberately desaturated |
+| `--canvas` | `#F2F7FE` | App canvas (light blue) |
+| `--charcoal` (card) | `#FFFFFF` | White glass card surfaces |
+| `--obsidian` / `--ink` | `#0E2038` | Deep ink; text on accent fills |
+| `--gold` (saffron) | `#E0A64A` | Primary accent fills, score arc (muted saffron) |
+| `--gold-bright` (saffron ink) | `#C67A1E` | Emphasis numerals (reads on white) |
+| `--azure` / `--sky` | `#2F83E0` / `#5AA9F0` | Secondary accent, outlines, active tab |
+| `--slate` | `#5F7290` | Secondary text |
+| `--alabaster` | `#16294A` | Primary typography (deep navy) |
+| `--green` | `#14A06E` | Positive / settled |
+| `--danger` | `#E0524F` | Critical stock / overdue |
+| `--grad-brand` | `azure → saffron` | Wordmark, active tab bar, hero accents |
+| `--grad-saffron` | saffron gradient | Primary buttons (with soft glow) |
 
 ### 3.2 Typography & Components
 
-- **Type:** Inter (UI), Playfair Display (display headings, large balance figures).
-  Balance figures render at 34–40 pt with tabular numerals.
-- **Cards:** charcoal surfaces, 1 px gold-tinted borders at 25–35% opacity, 16 px
-  radius, soft elevation; glassmorphic overlays only on the hero credit widget.
-- **Charts:** thin-stroke micro-charts (sparklines, score arc) in gold/slate on
-  transparent backgrounds — no gridline noise.
+- **Type:** Inter (UI), Playfair Display (display headings, large balance figures, the
+  gradient wordmark). Balance figures render at 34–44 pt with tabular numerals.
+- **Cards:** white surfaces, 1 px azure-tinted borders, a sharp 10 px radius (`--r-card`),
+  soft blue elevation shadows; the hero cards (voice, festival, best-offer) carry a
+  saffron→azure gradient wash. Radii are variables (`--r-card`, `--r-btn`) for one-line tuning.
+- **Buttons:** primary CTAs use the saffron gradient with a soft glow and a 1 px hover lift;
+  secondary actions are azure outline.
+- **The RuPay virtual card** deliberately stays a dark navy→saffron gradient (card realism)
+  even within the light theme.
+- **Charts:** thin-stroke micro-charts (sparklines, score arc) in saffron/azure on a
+  light-blue track — no gridline noise.
 - **Iconography:** 1.5 px stroke line icons only; no filled emoji-style glyphs.
 
 The reference implementation is [`mobile/src/screens/DashboardScreen.tsx`](../mobile/src/screens/DashboardScreen.tsx).

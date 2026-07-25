@@ -5,19 +5,25 @@
 
 import { useEffect, useState } from 'react';
 
-import { apiGet, isLiveConfigured } from '../api';
+import { apiGet, isLiveConfigured, listMandates, Mandate } from '../api';
 import { Card, Header, inr, Row, SectionHead, Tag } from '../components';
 import { demo } from '../demo';
+
+const DEMO_MANDATES: Mandate[] = [
+  { id: 'demo-m1', maxAmount: 5000, frequency: 'MONTHLY', umn: 'UMN9AF483D6266D4687', status: 'ACTIVE', nextDebitDate: '2026-08-18' },
+];
 
 export default function Ledger() {
   const [live, setLive] = useState<'demo' | 'live'>('demo');
   const [cash, setCash] = useState({ receivables: demo.ledger.receivables, payables: demo.ledger.payables });
+  const [mandates, setMandates] = useState<Mandate[]>(DEMO_MANDATES);
 
   useEffect(() => {
     if (!isLiveConfigured()) return;
     apiGet<{ cashFlow: { receivables: number; payables: number } }>('/v1/dashboard').then((d) => {
       if (d) { setCash(d.cashFlow); setLive('live'); }
     });
+    listMandates().then((m) => { if (m) setMandates(m); });
   }, []);
 
   return (
@@ -48,7 +54,24 @@ export default function Ledger() {
           sub={`${demo.ledger.reminders.sent} sent today · escalates by aging bucket`}
           right={<Tag tone="green">ON</Tag>}
         />
+        <Row
+          left="Liquidity-timed"
+          sub="Nudges land just before each buyer's usual pay-day, learned from their payment history"
+          right={<Tag tone="gold">SMART</Tag>}
+        />
       </Card>
+
+      <SectionHead label="UPI AutoPay (e-mandate)" note="recurring distributor payments" />
+      {mandates.length === 0 && <div className="cart-empty">No mandates yet — set one up with your distributor.</div>}
+      {mandates.map((m) => (
+        <div key={m.id} className="alert-card">
+          <Row
+            left={`Up to ${inr(m.maxAmount)} · ${m.frequency === 'MONTHLY' ? 'monthly' : 'weekly'}`}
+            sub={m.umn ? `UMN ${m.umn} · next debit ${m.nextDebitDate ?? '—'} · settles FIFO` : 'awaiting UPI-app approval'}
+            right={<Tag tone={m.status === 'ACTIVE' ? 'green' : m.status === 'PENDING' ? 'gold' : 'slate'}>{m.status}</Tag>}
+          />
+        </div>
+      ))}
 
       <SectionHead label="EMI plans" />
       {demo.ledger.plans.map((p, i) => (

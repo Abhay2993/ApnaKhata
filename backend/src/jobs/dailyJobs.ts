@@ -9,6 +9,7 @@
  *   01:00  expiry-writeoff        — zero out expired batches for every owner
  *   02:00  nightly-credit-refresh — re-evaluate each shopkeeper (feeds the score
  *                                   trend: the trigger snapshots one point/day)
+ *   09:00  autopay-mandates       — execute due UPI AutoPay debits (capped at dues)
  *   10:00  payment-reminders      — dispatch due WhatsApp/SMS nudges, cadence-throttled
  */
 
@@ -19,6 +20,7 @@ import { BatchExpiryService } from '../services/BatchExpiryService';
 import { CreditScoreEvaluator } from '../services/CreditScoreEvaluator';
 import { InterestAccrualService } from '../services/InterestAccrualService';
 import { PaymentReminderService } from '../services/PaymentReminderService';
+import { UpiMandateService } from '../services/UpiMandateService';
 import { ScheduledJob } from './scheduler';
 
 export function buildDailyJobs(db: Pool, notifier: Notifier = new ConsoleNotifier()): ScheduledJob[] {
@@ -26,6 +28,7 @@ export function buildDailyJobs(db: Pool, notifier: Notifier = new ConsoleNotifie
   const interest = new InterestAccrualService(db);
   const expiry = new BatchExpiryService(db);
   const evaluator = new CreditScoreEvaluator(db);
+  const mandates = new UpiMandateService(db);
 
   return [
     {
@@ -72,6 +75,14 @@ export function buildDailyJobs(db: Pool, notifier: Notifier = new ConsoleNotifie
       schedule: { kind: 'dailyAt', hour: 10, minute: 0 },
       run: async () => {
         await reminders.dispatchDueReminders();
+      },
+    },
+    {
+      name: 'autopay-mandates',
+      schedule: { kind: 'dailyAt', hour: 9, minute: 0 },
+      run: async () => {
+        const { executed, skipped } = await mandates.executeDue();
+        if (executed || skipped) console.log(`autopay: ${executed} debits executed, ${skipped} rolled forward`);
       },
     },
   ];

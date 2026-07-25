@@ -10,6 +10,7 @@
 import { RequestHandler, Router } from 'express';
 
 import { DealerDirectoryService } from '../services/DealerDirectoryService';
+import { DealerReliabilityService } from '../services/DealerReliabilityService';
 import { IntegrationService } from '../services/IntegrationService';
 import { PurchaseOrderService } from '../services/PurchaseOrderService';
 import { SchemeService } from '../services/SchemeService';
@@ -62,6 +63,7 @@ export interface MarketplaceServices {
   purchaseOrders: PurchaseOrderService;
   integrations: IntegrationService;
   schemes: SchemeService;
+  reliability: DealerReliabilityService;
 }
 
 export function marketplaceRoutes(s: MarketplaceServices): Router {
@@ -72,14 +74,23 @@ export function marketplaceRoutes(s: MarketplaceServices): Router {
     '/dealers/search',
     requireUser,
     wrap(async (req, res) => {
-      res.json(
-        await s.dealers.searchDealers({
-          query: req.query.q ? String(req.query.q) : undefined,
-          category: req.query.category ? String(req.query.category) : undefined,
-          city: req.query.city ? String(req.query.city) : undefined,
-          limit: req.query.limit ? Number(req.query.limit) : undefined,
-        }),
-      );
+      const results = await s.dealers.searchDealers({
+        query: req.query.q ? String(req.query.q) : undefined,
+        category: req.query.category ? String(req.query.category) : undefined,
+        city: req.query.city ? String(req.query.city) : undefined,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+      });
+      // Trust signal: fold each dealer's reliability rating into the results.
+      const ratings = await s.reliability.ratingsFor(results.map((d) => d.dealerId));
+      res.json(results.map((d) => ({ ...d, reliability: ratings.get(d.dealerId) ?? null })));
+    }),
+  );
+
+  r.get(
+    '/dealers/:id/reliability',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await s.reliability.getRating(req.params.id));
     }),
   );
 

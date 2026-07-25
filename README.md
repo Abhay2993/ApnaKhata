@@ -48,14 +48,27 @@ interactive browser preview of the app, configured via the root
 [`vercel.json`](vercel.json). Push to the connected branch and open your Vercel
 deployment URL to use it. Six tabs cover the whole product:
 
-- **Home** — credit passport, cash flow, business-health snapshot, forecast stock alerts + one-tap reorder.
+- **Home** — credit passport, cash flow, business-health snapshot, a **festival demand
+  planner** (proactive "stock up before Diwali" advice), and forecast stock alerts + one-tap reorder.
 - **Khata** — customer udhaar ledger with **voice + vernacular entry**: speak or type
-  "Ramesh ko paanch sau udhaar" and it's parsed into a ledger entry. A language switcher
-  drives the UI in Hindi, Marathi, Gujarati, Bengali, Tamil, Telugu, Kannada (English fallback).
+  "Ramesh ko paanch sau udhaar" and it's parsed into a ledger entry. **Offline-first** — entries
+  captured with no connectivity queue locally and reconcile on reconnect (a "pending sync"
+  badge shows the queue). A language switcher drives the UI in Hindi, Marathi, Gujarati,
+  Bengali, Tamil, Telugu, Kannada (English fallback).
 - **Credit** — passport score + pillars, what-if simulator, score trend, BNPL financing, bank pre-approvals.
-- **Market** — search wholesalers, browse catalog with trade schemes, place an order.
+- **Market** — search wholesalers (each with a **reliability rating** from disputes + on-time
+  deliveries), browse catalog with trade schemes, place an order.
 - **GST** — filing summary (GSTR-1/3B), e-invoicing, GSTR-2B input-tax-credit matching, e-way bills.
-- **More** — Analytics (profit/margins/dead-stock/health), Ledger (bills/reminders/EMI/disputes), Live Inventory, Scan & Bill.
+- **More** — **Working Capital** (anchor-led supply-chain finance: connect bank via Account
+  Aggregator → competing lender offers → disburse), **Credit Line** (a RuPay credit line on
+  UPI — pay distributors from a sanctioned revolving line, not a bank balance), Analytics,
+  Ledger (bills, liquidity-timed reminders, EMI, **UPI AutoPay mandates**), **Cash Drawer**
+  (daily cash-vs-digital reconciliation), **Benchmarks** (anonymised peer/consortium
+  intelligence — margin percentile, velocity lags, assortment gaps), **Storefront** (publish
+  live inventory to **ONDC** + a customer **loyalty program**), **Books & CA** (auto-generated
+  P&L + balance sheet, a chartered-accountant marketplace, and GST-notice handling with an
+  auto-drafted reply), **Fraud Shield** (a graph-derived trust score + circular-trading /
+  structuring / templated-billing detection across the network), Live Inventory, Scan & Bill.
 
 The **WhatsApp-first** bot rides on top of the same services: a retailer texts an order to
 a distributor and it auto-parses into a purchase order; a shopkeeper posts khata entries by
@@ -64,7 +77,8 @@ message; a customer texts to check their outstanding balance (webhook at
 
 Every screen runs **live against the API** when `VITE_API_URL` is set (the docker-compose
 stack), and on **demo data** otherwise (the standalone Vercel build) — a LIVE/DEMO badge
-shows which. Voice uses the browser's Web Speech API with a typed fallback.
+shows which. Voice uses the browser's Web Speech API with a typed fallback; offline entries
+sync through `POST /v1/sync/push` when the API returns.
 
 GitHub itself can't execute a React Native app, so these rendered previews
 (mirroring the real components in `mobile/src/screens/`) are also embedded
@@ -115,7 +129,40 @@ directly in the repo. To run the real mobile app, see
 | `backend/src/nlp/CommandParser.ts` | Dependency-free NLP: romanised-Hindi number words ("paanch sau", "dhai sau", "do hazaar"), credit/payment intent, party extraction, order parsing. |
 | `backend/src/services/CustomerLedgerService.ts` | Consumer-udhaar ledger with fuzzy customer matching; `recordFromVoice` interprets an utterance and posts the entry — `POST /v1/voice/ledger`, `/v1/customers`. |
 | `backend/src/services/WhatsAppBotService.ts` + `backend/src/whatsapp/` | Two-way WhatsApp bot: retailer order→PO, shop-owner khata entry, customer balance lookup, routed by which business owns the receiving number. |
-| `web/src/i18n.tsx` + `web/src/screens/Khata.tsx` | Vernacular UI (8 languages) + the Khata screen — Web Speech voice capture, typed fallback, live/demo customer balances. |
+| `web/src/i18n.tsx` + `web/src/screens/Khata.tsx` | Vernacular UI (8 languages) + the Khata screen — Web Speech voice capture, typed fallback, live/demo customer balances, offline outbox with a pending-sync badge. |
+| `database/migrations/009_offline_sync.sql` | Offline-first sync — a global `sync_seq` cursor on the synced tables + `client_operations` idempotency ledger (grow-only-set CRDT). |
+| `backend/src/services/SyncService.ts` + `backend/src/http/syncRoutes.ts` | `push` (idempotent, replay-safe batch apply) / `pull` (delta since cursor) for the customer khata — the device outbox lands here. |
+| `database/migrations/010_cash_drawer_mandates.sql` | Cash-drawer days + movements, and UPI AutoPay mandates + executions. |
+| `backend/src/services/CashDrawerService.ts` | Daily cash reconciliation — opening float, cash in/out, expected vs counted close, variance. |
+| `backend/src/services/UpiMandateService.ts` | UPI AutoPay / e-mandate — create → authorize (UMN) → execute a debit that settles FIFO; `executeDue` runs the due debits nightly. |
+| `backend/src/services/SmartReminderService.ts` | Liquidity-timed reminders — learns each debtor's typical pay-day from payment history and suggests when to nudge. |
+| `backend/src/services/DealerReliabilityService.ts` | Marketplace trust rating (0–5★) from dispute rate + on-time delivery + order completion, thin-file damped. |
+| `backend/src/services/FestivalPlannerService.ts` | Festival demand planner — folds the stored forecast with festival uplift + lead time into a stock-up list with an order-by date. |
+| `backend/src/http/opsRoutes.ts` | Routes for cash-drawer, mandates, smart-reminder suggestions, and the festival plan. |
+| `web/src/screens/CashDrawer.tsx` | Cash Drawer screen — open/record/close with the variance surfaced (live or demo). |
+| `database/migrations/011_supply_chain_finance.sql` | Anchor-led finance — AA consents + cash-flow summaries, OCEN loan applications, competing lender offers, disbursed loans. |
+| `backend/src/finance/AccountAggregatorGateway.ts` | Pluggable Account Aggregator (Sahamati) gateway; the sandbox derives a coherent cash-flow profile from the borrower's own ledger throughput. |
+| `backend/src/finance/OcenLenderNetwork.ts` | OCEN lender panel — each lender bids independently on the underwriting bundle (risk appetite, rate card, ticket ceiling, anchor discount). |
+| `backend/src/services/AccountAggregatorService.ts` | AA consent lifecycle (create → approve → fetch) and the stored cash-flow summary that feeds underwriting. |
+| `backend/src/services/SupplyChainFinanceService.ts` | The OCEN LSP: anchor-relationship signal + three-factor underwriting (passport + AA + anchor) → competing offers → accept, disbursing to settle the distributor's dues via FIFO. `/v1/scf/*`, `/v1/aa/*`. |
+| `web/src/screens/SupplyChainFinance.tsx` | Working Capital screen — anchor relationship, AA bank connect, competing lender offers, disbursal (live or demo). |
+| `database/migrations/012_credit_line_upi.sql` | Credit-line-on-UPI — `credit_lines` (revolving line + virtual RuPay card) and `credit_line_txns` (draws + repayments). |
+| `backend/src/services/CreditLineService.ts` | RuPay credit line on UPI — passport-sized eligibility, issue, `payViaUpi` (draw settles the payee's dues via FIFO), revolving repay. `/v1/credit-line/*`. |
+| `web/src/screens/CreditLine.tsx` | Credit Line screen — virtual RuPay card, utilisation meter, scan-and-pay a distributor, repay (live or demo). |
+| `backend/src/services/PeerBenchmarkService.ts` | Anonymised consortium intelligence — margin percentile, velocity lags, and assortment gaps vs a same-state peer cohort. `GET /v1/analytics/benchmarks`. |
+| `web/src/screens/Benchmarks.tsx` | Benchmarks screen — insights, margin-vs-peers, lagging products, and fast-movers to stock (live or demo). |
+| `database/migrations/013_loyalty_ondc.sql` | Consumer graph — `loyalty_accounts`/`loyalty_txns` and `ondc_listings`/`ondc_orders`. |
+| `backend/src/services/LoyaltyService.ts` | Points program tied to the khata — earn on credit purchases (auto-hooked into `CustomerLedgerService`), redeem, tiers. `/v1/loyalty/*`. |
+| `backend/src/services/OndcService.ts` + `backend/src/finance/OndcGateway.ts` | Publishes inventory to ONDC (pluggable seller-node gateway); consumer orders draw down stock, book a retail sale, and earn loyalty for matched customers. `/v1/ondc/*`. |
+| `web/src/screens/Storefront.tsx` | Storefront screen — ONDC publish + incoming orders, and the loyalty roster with tiers (live or demo). |
+| `database/migrations/014_accounting_ca_gst.sql` | CA marketplace (`ca_professionals`, `ca_engagements`) + GST-notice handling (`gst_notices`). |
+| `backend/src/services/AccountingService.ts` | Auto-accounting — a P&L (trading account from stock movements) and balance sheet generated from existing data, no bookkeeping. `/v1/accounting/*`. |
+| `backend/src/services/CaMarketplaceService.ts` | Chartered-accountant directory + engagement tracking. `/v1/cas/*`. |
+| `backend/src/services/GstNoticeService.ts` | GST notices with an auto-drafted response grounded in the shop's own reconciled GST numbers, and one-tap assignment to a CA. `/v1/gst-notices/*`. |
+| `web/src/screens/Books.tsx` | Books & CA screen — auto P&L + balance sheet, GST notices with auto-draft, and the CA marketplace (live or demo). |
+| `database/migrations/015_fraud_graph.sql` | `fraud_cases` — the triage workflow on top of read-only graph detection. |
+| `backend/src/services/FraudGraphService.ts` | Fraud & trust graph — circular-trade ring detection, structuring / templated-billing / dispute-ratio flags, a 0–100 trust score, and case triage. `/v1/fraud/*`. |
+| `web/src/screens/FraudShield.tsx` | Fraud Shield screen — your trust score, network ring alerts, high-risk entities, and case workflow (live or demo). |
 | `database/migrations/003_credit_banking.sql` | Credit & banking — daily score-history snapshots (auto-trigger), lender submission records. |
 | `backend/src/services/creditScoring.ts` | Shared scoring math (weights, pillar formulas, tiers) — single source of truth for the evaluator and simulator. |
 | `backend/src/services/CreditPassportService.ts` | Ed25519-signed "Credit Risk Passport": canonical JSON, per-user hash chain, deterministic signed PDF, tamper-evident verification. |

@@ -11,9 +11,13 @@
  * mention) and posts the entry, returning the new running balance.
  */
 
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 import { LedgerCommand, parseLedgerCommand } from '../nlp/CommandParser';
+import { LoyaltyService } from './LoyaltyService';
+
+/** Either the pool or a checked-out client, so callers can run inside a txn. */
+type Executor = Pool | PoolClient;
 
 export type CustomerEntryType = 'CREDIT' | 'PAYMENT';
 export type EntrySource = 'VOICE' | 'MANUAL' | 'WHATSAPP';
@@ -67,7 +71,9 @@ export interface VoiceResult {
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export class CustomerLedgerService {
-  constructor(private readonly db: Pool) {}
+  // Optional: award loyalty points when a customer buys on credit (three-sided
+  // consumer graph). Injected so the ledger has no hard dependency on loyalty.
+  constructor(private readonly db: Pool, private readonly loyalty?: LoyaltyService) {}
 
   /**
    * Resolve a customer for a spoken/typed name, creating one on first mention.
@@ -75,11 +81,11 @@ export class CustomerLedgerService {
    * Kumar": exact (case-insensitive) wins, then a first-name / prefix match.
    * Only when nothing matches is a new customer created.
    */
-  async ensureCustomer(ownerId: string, name: string, phone?: string | null): Promise<Customer> {
+  async ensureCustomer(ownerId: string, name: string, phone?: string | null, exec: Executor = this.db): Promise<Customer> {
     const trimmed = name.trim();
     if (!trimmed) throw new Error('customer name is required');
 
-    const { rows: found } = await this.db.query<CustomerRow>(
+    const { rows: found } = await exec.query<CustomerRow>(
       `
       SELECT id, name, phone FROM customers
       WHERE owner_id = $1
@@ -96,13 +102,13 @@ export class CustomerLedgerService {
     if (found.length) {
       const existing = found[0];
       if (phone && !existing.phone) {
-        await this.db.query(`UPDATE customers SET phone = $2 WHERE id = $1`, [existing.id, phone]);
+        await exec.query(`UPDATE customers SET phone = $2 WHERE id = $1`, [existing.id, phone]);
         existing.phone = phone;
       }
       return mapCustomer(existing);
     }
 
-    const { rows } = await this.db.query<CustomerRow>(
+    const { rows } = await exec.query<CustomerRow>(
       `
       INSERT INTO customers (owner_id, name, phone)
       VALUES ($1, $2, $3)
@@ -138,6 +144,16 @@ export class CustomerLedgerService {
        input.source ?? 'MANUAL', input.transcript ?? null],
     );
     if (rows.length === 0) throw new Error('customer not found');
+
+    // A credit purchase (goods taken) earns loyalty points — best-effort, never
+    // fails the ledger entry.
+    if (this.loyalty && input.entryType === 'CREDIT') {
+      try {
+        await this.loyalty.earnForPurchase(ownerId, customerId, round2(input.amount), rows[0].id);
+      } catch {
+        /* loyalty is non-critical to the ledger */
+      }
+    }
 
     const balance = await this.getBalance(ownerId, customerId);
     return { customer: balance, entry: mapEntry(rows[0]) };

@@ -119,6 +119,71 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.saltInventory, DEMO.shopkeeper],
   );
 
+  // Gupta's Parle-G (slow) and Oil sales so peer-benchmark velocity has signal
+  // for those SKUs (Gupta sells Parle-G below the peer median — a laggard).
+  for (const [sku, rate] of [['PARLE-G-800', 2], ['FORT-OIL-1L', 1]] as [string, number][]) {
+    await db.query(
+      `
+      INSERT INTO stock_movements (time, inventory_id, owner_id, delta, reason, stock_after)
+      SELECT now() - (d || ' days')::interval, i.id, i.owner_id, $3, 'SALE', i.current_stock
+      FROM inventory i, generate_series(1, 28) d
+      WHERE i.owner_id = $1 AND i.sku = $2
+        AND NOT EXISTS (SELECT 1 FROM stock_movements sm WHERE sm.inventory_id = i.id)
+      `,
+      [DEMO.shopkeeper, sku, -rate],
+    );
+  }
+
+  // Peer cohort for consortium benchmarking: four more Pune kirana with
+  // overlapping + differing assortments and 28 days of sales, so "shops like
+  // yours" velocity, margin and assortment-gap comparisons are real.
+  const SKU_MASTER: Record<string, [string, string, number, number]> = {
+    'TATA-SALT-1KG': ['Tata Salt 1kg', 'Grocery', 22, 28],
+    'FORT-OIL-1L': ['Fortune Sunflower Oil 1L', 'Grocery', 150, 165],
+    'PARLE-G-800': ['Parle-G 800g Family Pack', 'Biscuits', 84, 98],
+    'MAGGI-2MIN-12': ['Maggi 2-Minute Noodles 12x70g', 'Grocery', 120, 144],
+    'AMUL-BUTTER-500': ['Amul Butter 500g', 'Dairy', 235, 265],
+    'COLGATE-100G': ['Colgate MaxFresh 100g', 'Personal Care', 45, 55],
+    'AASHIRVAAD-ATTA-5KG': ['Aashirvaad Atta 5kg', 'Grocery', 240, 290],
+    'SURF-EXCEL-1KG': ['Surf Excel 1kg', 'Home Care', 110, 135],
+  };
+  const PEERS: { id: string; name: string; gstin: string; assort: [string, number][] }[] = [
+    { id: 'aaaaaaaa-0000-4000-8000-000000000001', name: 'Deshmukh Stores', gstin: '27AADSH1234K1Z1',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 2], ['PARLE-G-800', 5], ['MAGGI-2MIN-12', 3], ['AMUL-BUTTER-500', 2], ['COLGATE-100G', 2], ['AASHIRVAAD-ATTA-5KG', 1]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000002', name: 'Joshi Kirana', gstin: '27AAJOS5678K1Z2',
+      assort: [['TATA-SALT-1KG', 4], ['FORT-OIL-1L', 2], ['PARLE-G-800', 4], ['MAGGI-2MIN-12', 3], ['COLGATE-100G', 2], ['SURF-EXCEL-1KG', 2]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000003', name: 'Patil Provision', gstin: '27AAPAT9012K1Z3',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 3], ['PARLE-G-800', 6], ['MAGGI-2MIN-12', 4], ['AMUL-BUTTER-500', 3], ['AASHIRVAAD-ATTA-5KG', 2], ['SURF-EXCEL-1KG', 2]] },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000004', name: 'Kulkarni Mart', gstin: '27AAKUL3456K1Z4',
+      assort: [['TATA-SALT-1KG', 3], ['FORT-OIL-1L', 2], ['PARLE-G-800', 5], ['AMUL-BUTTER-500', 2], ['COLGATE-100G', 3], ['SURF-EXCEL-1KG', 3]] },
+  ];
+  const peersSeeded = Number((await db.query(`SELECT COUNT(*) n FROM users WHERE id = $1`, [PEERS[0].id])).rows[0].n) > 0;
+  if (!peersSeeded) {
+    let peerPhone = 9820000010;
+    for (const peer of PEERS) {
+      await db.query(
+        `INSERT INTO users (id, role, business_name, owner_name, phone, email, password_hash, gstin, city, state_code)
+         VALUES ($1,'SHOPKEEPER',$2,$2,$6,$3,$4,$5,'Pune','27') ON CONFLICT (id) DO NOTHING`,
+        [peer.id, peer.name, `${peer.name.split(' ')[0].toLowerCase()}@demo.in`, pw, peer.gstin, `+91${peerPhone++}`],
+      );
+      for (const [sku, dailyRate] of peer.assort) {
+        const [name, category, wp, rp] = SKU_MASTER[sku];
+        const { rows: inv } = await db.query<{ id: string }>(
+          `INSERT INTO inventory (owner_id, sku, product_name, category, unit, current_stock, minimum_threshold, wholesale_price, retail_price, hsn_code, gst_rate)
+           VALUES ($1,$2,$3,$4,'PCS',40,10,$5,$6,'0000',5)
+           ON CONFLICT (owner_id, sku) DO UPDATE SET product_name = EXCLUDED.product_name RETURNING id`,
+          [peer.id, sku, name, category, wp, rp],
+        );
+        await db.query(
+          `INSERT INTO stock_movements (time, inventory_id, owner_id, delta, reason, stock_after)
+           SELECT now() - (d || ' days')::interval, $1, $2, $3, 'SALE', 40
+           FROM generate_series(1, 28) d`,
+          [inv[0].id, peer.id, -dailyRate],
+        );
+      }
+    }
+  }
+
   await db.query(
     `
     INSERT INTO reminder_policies (distributor_id, bucket, channel, min_interval_days)
@@ -165,6 +230,22 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
     [DEMO.distributor],
   );
 
+  // Historical POs so the dealer-reliability rating has signal: 4 received
+  // (3 on time, 1 late) and 1 cancelled. ON CONFLICT keeps re-runs clean.
+  await db.query(
+    `
+    INSERT INTO purchase_orders (po_number, buyer_id, supplier_id, status, expected_delivery_date, received_at, created_at)
+    VALUES
+      ('PO-SEED-R1', $1, $2, 'RECEIVED',  CURRENT_DATE - 55, (CURRENT_DATE - 56)::timestamptz, now() - interval '60 days'),
+      ('PO-SEED-R2', $1, $2, 'RECEIVED',  CURRENT_DATE - 40, (CURRENT_DATE - 41)::timestamptz, now() - interval '45 days'),
+      ('PO-SEED-R3', $1, $2, 'RECEIVED',  CURRENT_DATE - 25, (CURRENT_DATE - 26)::timestamptz, now() - interval '30 days'),
+      ('PO-SEED-R4', $1, $2, 'RECEIVED',  CURRENT_DATE - 12, (CURRENT_DATE - 9)::timestamptz,  now() - interval '15 days'),
+      ('PO-SEED-R5', $1, $2, 'CANCELLED', NULL, NULL, now() - interval '10 days')
+    ON CONFLICT (po_number) DO NOTHING
+    `,
+    [DEMO.shopkeeper, DEMO.distributor],
+  );
+
   // Customer khata (consumer udhaar) for the primary shopkeeper — the ledger
   // that voice + WhatsApp entries land in. Ramesh carries a phone so the
   // WhatsApp balance-lookup demo works.
@@ -191,6 +272,95 @@ export async function seed(db: Pool, log: (m: string) => void = console.log): Pr
         `INSERT INTO customer_ledger_entries (customer_id, owner_id, entry_type, amount, source)
          VALUES ($1, $2, $3, $4, $5)`,
         [customers[name], DEMO.shopkeeper, type, amount, source],
+      );
+    }
+
+    // Loyalty accounts (three-sided consumer graph) with lifetime points so the
+    // roster shows real tiers: Ramesh PLATINUM, Suresh GOLD, Anita SILVER.
+    for (const [name, points, tier] of [
+      ['Ramesh Kumar', 1240, 'PLATINUM'],
+      ['Suresh Yadav', 360, 'GOLD'],
+      ['Anita Sharma', 90, 'SILVER'],
+    ] as [string, number, string][]) {
+      await db.query(
+        `INSERT INTO loyalty_accounts (customer_id, owner_id, points_balance, lifetime_points, tier)
+         VALUES ($1, $2, $3, $3, $4::loyalty_tier) ON CONFLICT (customer_id) DO NOTHING`,
+        [customers[name], DEMO.shopkeeper, points, tier],
+      );
+    }
+  }
+
+  // CA marketplace directory + a demo GST notice so Books has content.
+  await db.query(
+    `
+    INSERT INTO ca_professionals (name, firm, membership_no, city, specializations, rating, min_fee, max_fee, languages)
+    SELECT * FROM (VALUES
+      ('CA Meera Iyer','Iyer & Associates','123456','Pune', ARRAY['GST','NOTICE','ITR'], 4.8, 2500, 8000, ARRAY['English','Hindi','Marathi']),
+      ('CA Rohan Shah','Shah Fintax LLP','234567','Pune', ARRAY['GST','AUDIT'], 4.6, 3000, 12000, ARRAY['English','Gujarati','Hindi']),
+      ('CA Anjali Verma','Verma & Co','345678','Mumbai', ARRAY['NOTICE','GST','ITR'], 4.9, 3500, 15000, ARRAY['English','Hindi']),
+      ('CA Karthik Rao','Rao Compliance','456789','Bengaluru', ARRAY['GST','ITR'], 4.5, 2000, 9000, ARRAY['English','Kannada','Hindi'])
+    ) AS v
+    WHERE NOT EXISTS (SELECT 1 FROM ca_professionals)
+    `,
+  );
+  if (Number((await db.query(`SELECT COUNT(*) n FROM gst_notices WHERE owner_id = $1`, [DEMO.shopkeeper])).rows[0].n) === 0) {
+    await db.query(
+      `
+      INSERT INTO gst_notices (owner_id, notice_type, reference_no, period, amount_involved, due_date, description)
+      VALUES ($1,'ITC_MISMATCH','ZA2707240012345','2026-05',18400, CURRENT_DATE + 12,
+              'ITC claimed in GSTR-3B exceeds auto-populated GSTR-2B for the period — reconcile and respond.')
+      `,
+      [DEMO.shopkeeper],
+    );
+  }
+
+  // Fraud-graph demo: an ISOLATED subgraph of three shell traders that round-
+  // trip invoices in a loop (Alpha → Beta → Gamma → Alpha) — classic circular
+  // trading — plus structuring just under the ₹50k e-way-bill threshold and a
+  // duplicated invoice number. Kept separate from the real cast so it never
+  // taints their scores; the fraud detector surfaces it as a network alert.
+  const RING = [
+    { id: 'ffffffff-0000-4000-8000-000000000001', name: 'Alpha Traders', gstin: '27AAAFA1111A1Z1' },
+    { id: 'ffffffff-0000-4000-8000-000000000002', name: 'Beta Enterprises', gstin: '27AAAFB2222B1Z2' },
+    { id: 'ffffffff-0000-4000-8000-000000000003', name: 'Gamma Trading', gstin: '27AAAFC3333C1Z3' },
+  ];
+  if (Number((await db.query(`SELECT COUNT(*) n FROM users WHERE id = $1`, [RING[0].id])).rows[0].n) === 0) {
+    let fp = 9830000021;
+    for (const t of RING) {
+      await db.query(
+        `INSERT INTO users (id, role, business_name, owner_name, phone, email, password_hash, gstin, city, state_code)
+         VALUES ($1,'DISTRIBUTOR',$2,$2,$5,$3,$4,$6,'Pune','27') ON CONFLICT (id) DO NOTHING`,
+        [t.id, t.name, `${t.name.split(' ')[0].toLowerCase()}@shell.in`, pw, `+91${fp++}`, t.gstin],
+      );
+    }
+    // The round-trip loop: three balanced invoices ~₹90k circling back.
+    const loop: [string, string, number][] = [
+      [RING[0].id, RING[1].id, 92000],
+      [RING[1].id, RING[2].id, 94500],
+      [RING[2].id, RING[0].id, 93000],
+    ];
+    let li = 0;
+    for (const [from, to, amt] of loop) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 20, now() - interval '25 days')`,
+        [from, to, `RING-${li++}`, amt],
+      );
+    }
+    // Alpha structures three purchases just under the e-way-bill threshold.
+    for (const [amt, n] of [[49000, 1], [48500, 2], [49500, 3]] as [number, number][]) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 15, now() - interval '18 days')`,
+        [RING[1].id, RING[0].id, `STR-${n}`, amt],
+      );
+    }
+    // Gamma issues three invoices of the identical amount — templated billing.
+    for (let k = 1; k <= 3; k++) {
+      await db.query(
+        `INSERT INTO transactions_ledger (sender_id, receiver_id, invoice_number, amount, balance_remaining, due_date, created_at)
+         VALUES ($1,$2,$3,$4,$4, CURRENT_DATE + 10, now() - interval '12 days')`,
+        [RING[2].id, RING[1].id, `GT-88-${k}`, 61000],
       );
     }
   }

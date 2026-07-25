@@ -7,10 +7,19 @@
 import { Router } from 'express';
 
 import { AnalyticsService } from '../services/AnalyticsService';
+import { PeerBenchmarkService } from '../services/PeerBenchmarkService';
 import { requireUser, wrap } from './middleware';
 
-export function analyticsRoutes(analytics: AnalyticsService): Router {
+export function analyticsRoutes(analytics: AnalyticsService, benchmarks: PeerBenchmarkService): Router {
   const r = Router();
+
+  r.get(
+    '/analytics/benchmarks',
+    requireUser,
+    wrap(async (req, res) => {
+      res.json(await benchmarks.getBenchmarks(req.userId as string));
+    }),
+  );
 
   r.get(
     '/analytics/profit',

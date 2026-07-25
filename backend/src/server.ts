@@ -19,7 +19,22 @@ import { BarcodeInventoryService } from './services/BarcodeInventoryService';
 import { BatchExpiryService } from './services/BatchExpiryService';
 import { BnplService } from './services/BnplService';
 import { CreditHistoryService } from './services/CreditHistoryService';
+import { AccountAggregatorService } from './services/AccountAggregatorService';
+import { AccountingService } from './services/AccountingService';
+import { CaMarketplaceService } from './services/CaMarketplaceService';
+import { CashDrawerService } from './services/CashDrawerService';
+import { CreditLineService } from './services/CreditLineService';
 import { CustomerLedgerService } from './services/CustomerLedgerService';
+import { FraudGraphService } from './services/FraudGraphService';
+import { GstNoticeService } from './services/GstNoticeService';
+import { LoyaltyService } from './services/LoyaltyService';
+import { OndcService } from './services/OndcService';
+import { SupplyChainFinanceService } from './services/SupplyChainFinanceService';
+import { DealerReliabilityService } from './services/DealerReliabilityService';
+import { FestivalPlannerService } from './services/FestivalPlannerService';
+import { SmartReminderService } from './services/SmartReminderService';
+import { SyncService } from './services/SyncService';
+import { UpiMandateService } from './services/UpiMandateService';
 import { WhatsAppBotService } from './services/WhatsAppBotService';
 import { EInvoiceService } from './services/EInvoiceService';
 import { EwayBillService } from './services/EwayBillService';
@@ -36,6 +51,7 @@ import { DistributorDemandService } from './services/DistributorDemandService';
 import { IntegrationService } from './services/IntegrationService';
 import { InterestAccrualService } from './services/InterestAccrualService';
 import { LenderSubmissionService } from './services/LenderSubmissionService';
+import { PeerBenchmarkService } from './services/PeerBenchmarkService';
 import { PaymentPlanService } from './services/PaymentPlanService';
 import { PaymentReminderService } from './services/PaymentReminderService';
 import { PurchaseOrderService } from './services/PurchaseOrderService';
@@ -43,12 +59,18 @@ import { SchemeService } from './services/SchemeService';
 import { UpiCollectionService } from './services/UpiCollectionService';
 import { WarehouseService } from './services/WarehouseService';
 import { analyticsRoutes } from './http/analyticsRoutes';
+import { booksRoutes } from './http/booksRoutes';
 import { complianceRoutes } from './http/complianceRoutes';
+import { consumerRoutes } from './http/consumerRoutes';
 import { creditRoutes } from './http/creditRoutes';
 import { customerRoutes } from './http/customerRoutes';
+import { financeRoutes } from './http/financeRoutes';
+import { fraudRoutes } from './http/fraudRoutes';
 import { inventoryRoutes } from './http/inventoryRoutes';
 import { ledgerRoutes } from './http/ledgerRoutes';
 import { liveInventoryStreamHandler, marketplaceRoutes } from './http/marketplaceRoutes';
+import { opsRoutes } from './http/opsRoutes';
+import { syncRoutes } from './http/syncRoutes';
 import { webhookRoutes } from './http/webhookRoutes';
 import { cors, errorHandler, requireApiKey } from './http/middleware';
 
@@ -69,7 +91,8 @@ export function buildApp(
   });
 
   const integrations = new IntegrationService(db);
-  const customers = new CustomerLedgerService(db);
+  const loyalty = new LoyaltyService(db);
+  const customers = new CustomerLedgerService(db, loyalty);
   const whatsappBot = new WhatsAppBotService(db, whatsapp, new PurchaseOrderService(db), customers);
 
   // External webhooks (billing HMAC + WhatsApp) — authenticate on their own, so
@@ -131,10 +154,41 @@ export function buildApp(
       purchaseOrders: new PurchaseOrderService(db),
       integrations,
       schemes: new SchemeService(db),
+      reliability: new DealerReliabilityService(db),
     }),
   );
-  app.use('/v1', analyticsRoutes(new AnalyticsService(db)));
+  app.use('/v1', analyticsRoutes(new AnalyticsService(db), new PeerBenchmarkService(db)));
   app.use('/v1', customerRoutes(customers));
+  app.use('/v1', consumerRoutes({ loyalty, ondc: new OndcService(db, undefined, loyalty) }));
+  const caMarketplace = new CaMarketplaceService(db);
+  app.use(
+    '/v1',
+    booksRoutes({
+      accounting: new AccountingService(db),
+      cas: caMarketplace,
+      notices: new GstNoticeService(db, undefined, caMarketplace),
+    }),
+  );
+  app.use('/v1', fraudRoutes(new FraudGraphService(db)));
+  app.use('/v1', syncRoutes(new SyncService(db, customers)));
+  const accountAggregator = new AccountAggregatorService(db);
+  app.use(
+    '/v1',
+    financeRoutes({
+      aa: accountAggregator,
+      scf: new SupplyChainFinanceService(db, accountAggregator),
+      creditLine: new CreditLineService(db),
+    }),
+  );
+  app.use(
+    '/v1',
+    opsRoutes({
+      cashDrawer: new CashDrawerService(db),
+      mandates: new UpiMandateService(db),
+      smartReminders: new SmartReminderService(db),
+      festivals: new FestivalPlannerService(db),
+    }),
+  );
 
   app.use(errorHandler);
   return app;

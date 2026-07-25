@@ -70,7 +70,7 @@ export function ScoreArc({ score, size = 150 }: { score: number; size?: number }
   const dot = polar(start + sweep * progress);
   return (
     <svg width={size} height={size}>
-      <path d={arc(start, start + sweep)} stroke="#2a3542" strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
+      <path d={arc(start, start + sweep)} stroke="#d6e4f5" strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
       <path d={arc(start, start + Math.max(sweep * progress, 1))} stroke="var(--gold)" strokeWidth={strokeWidth} strokeLinecap="round" fill="none" />
       <circle cx={dot.x} cy={dot.y} r={strokeWidth} fill="var(--gold-bright)" />
     </svg>
@@ -94,7 +94,7 @@ export function Sparkline({ data, width = 96, height = 30, color = 'var(--gold)'
 
 /** Horizontal proportion bar (0..1). */
 export function Meter({ value, tone = 'gold' }: { value: number; tone?: 'gold' | 'green' | 'red' }) {
-  const color = tone === 'green' ? '#6fcf97' : tone === 'red' ? 'var(--danger)' : 'var(--gold)';
+  const color = tone === 'green' ? 'var(--green)' : tone === 'red' ? 'var(--danger)' : 'var(--gold)';
   return (
     <div className="meter">
       <div className="meter-fill" style={{ width: `${Math.min(Math.max(value, 0), 1) * 100}%`, background: color }} />

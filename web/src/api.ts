@@ -100,6 +100,15 @@ export interface DealerSampleProduct {
   unit: string;
 }
 
+export interface DealerReliability {
+  rating: number;
+  band: 'EXCELLENT' | 'RELIABLE' | 'MIXED' | 'POOR' | 'NEW';
+  onTimeRate: number | null;
+  completionRate: number | null;
+  disputeRate: number | null;
+  observations: number;
+}
+
 export interface DealerResult {
   dealerId: string;
   businessName: string;
@@ -107,6 +116,7 @@ export interface DealerResult {
   productCount: number;
   minLeadTimeDays: number | null;
   sampleProducts: DealerSampleProduct[];
+  reliability?: DealerReliability | null;
 }
 
 export interface CatalogItem {
@@ -180,3 +190,339 @@ export async function listCustomers(): Promise<CustomerBalance[] | null> {
 export async function recordVoiceLedger(transcript: string): Promise<VoiceResult | null> {
   return apiPost<VoiceResult>('/v1/voice/ledger', { transcript });
 }
+
+// --- Offline-first sync ---
+export interface SyncOperation {
+  opId: string;
+  type: 'CUSTOMER_LEDGER_ENTRY';
+  clientTs?: string;
+  payload: {
+    customerName: string;
+    entryType: 'CREDIT' | 'PAYMENT';
+    amount: number;
+    source?: 'VOICE' | 'MANUAL' | 'WHATSAPP';
+    transcript?: string;
+  };
+}
+
+export interface SyncPushResult {
+  results: { opId: string; status: 'APPLIED' | 'DUPLICATE' | 'REJECTED'; ref?: string; reason?: string }[];
+  cursor: number;
+}
+
+export async function syncPush(deviceId: string, operations: SyncOperation[]): Promise<SyncPushResult | null> {
+  return apiPost<SyncPushResult>('/v1/sync/push', { deviceId, operations });
+}
+
+// --- Cash drawer ---
+export interface DrawerSummary {
+  id: string;
+  businessDate: string;
+  status: 'OPEN' | 'CLOSED';
+  openingBalance: number;
+  cashIn: number;
+  cashOut: number;
+  expectedClosing: number;
+  countedClosing: number | null;
+  variance: number | null;
+  movementCount: number;
+}
+
+export const getDrawerToday = () => apiGet<DrawerSummary | { status: 'NOT_OPENED' }>('/v1/cash-drawer/today');
+export const openDrawer = (openingBalance: number) => apiPost<DrawerSummary>('/v1/cash-drawer/open', { openingBalance });
+export const addDrawerMovement = (direction: 'IN' | 'OUT', amount: number, reason?: string) =>
+  apiPost<DrawerSummary>('/v1/cash-drawer/movements', { direction, amount, reason });
+export const closeDrawer = (countedClosing: number) => apiPost<DrawerSummary>('/v1/cash-drawer/close', { countedClosing });
+
+// --- Festival planner ---
+export interface FestivalPlan {
+  festival: { name: string; date: string; daysAway: number; uplift: number; windowDays: number };
+  items: {
+    sku: string;
+    productName: string;
+    currentStock: number;
+    unit: string;
+    suggestedOrderQty: number;
+    orderByDate: string;
+    distributorName: string | null;
+  }[];
+  advice: string;
+}
+
+export const fetchFestivalPlan = () => apiGet<FestivalPlan[]>('/v1/festivals/plan');
+
+// --- UPI AutoPay mandates ---
+export interface Mandate {
+  id: string;
+  maxAmount: number;
+  frequency: 'WEEKLY' | 'MONTHLY';
+  umn: string | null;
+  status: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'REVOKED';
+  nextDebitDate: string | null;
+}
+
+export const listMandates = () => apiGet<Mandate[]>('/v1/mandates');
+
+// --- Anchor-led supply-chain finance (OCEN + Account Aggregator) ---
+export interface AnchorRelationship {
+  anchorId: string;
+  anchorName: string;
+  invoiceCount: number;
+  totalTrade: number;
+  outstanding: number;
+  tenureMonths: number;
+  onTimeRate: number | null;
+  strength: number;
+}
+
+export interface AaSummary {
+  avgMonthlyInflow: number;
+  avgMonthlyOutflow: number;
+  avgBalance: number;
+  minBalance: number;
+  bounceCount: number;
+  months: number;
+}
+
+export interface LoanOffer {
+  id: string;
+  lenderKey: string;
+  lenderName: string;
+  sanctionedAmount: number;
+  interestRatePct: number;
+  tenureDays: number;
+  processingFee: number;
+  emiAmount: number;
+  totalRepayable: number;
+  status: string;
+}
+
+export interface LoanApplication {
+  id: string;
+  status: string;
+  riskGrade: string | null;
+  recommendedLimit: number | null;
+  anchorStrength: number | null;
+  creditScore: number | null;
+  underwriting: { usedAccountAggregator: boolean; rationale: string[] } | null;
+  offers?: LoanOffer[];
+}
+
+export interface DisbursedLoan {
+  id: string;
+  lenderName: string;
+  principal: number;
+  interestRatePct: number;
+  disbursedToAnchor: number;
+}
+
+/** The demo anchor: Sharma Distributors (the shopkeeper's preferred supplier). */
+export const ANCHOR_ID = '11111111-1111-1111-1111-111111111111';
+
+export const getAnchorRelationship = (anchorId: string) =>
+  apiGet<AnchorRelationship>(`/v1/scf/anchor/${anchorId}`);
+
+/** Run the whole AA handshake (create → approve → fetch) and return the summary. */
+export async function connectBankViaAA(): Promise<AaSummary | null> {
+  const consent = await apiPost<{ id: string }>('/v1/aa/consents', { months: 6 });
+  if (!consent) return null;
+  await apiPost(`/v1/aa/consents/${consent.id}/approve`, {});
+  return apiPost<AaSummary>(`/v1/aa/consents/${consent.id}/fetch`, {});
+}
+
+export const createLoanApplication = (body: { anchorId: string; amountRequested: number; tenureDays?: number }) =>
+  apiPost<LoanApplication>('/v1/scf/applications', body);
+
+export const acceptLoanOffer = (applicationId: string, offerId: string) =>
+  apiPost<{ loan: DisbursedLoan; application: LoanApplication }>(`/v1/scf/applications/${applicationId}/accept`, { offerId });
+
+// --- Credit line on UPI ---
+export interface CreditLine {
+  id: string;
+  lenderName: string;
+  sanctionedLimit: number;
+  availableLimit: number;
+  utilised: number;
+  interestRatePct: number;
+  status: string;
+  card: { last4: string; network: string; expiry: string };
+  upiHandle: string | null;
+}
+
+export interface CreditLineTxn {
+  id: string;
+  direction: 'DRAW' | 'REPAYMENT';
+  amount: number;
+  counterpartyName: string | null;
+  upiRef: string;
+  createdAt: string;
+}
+
+export interface CreditLineState {
+  line: CreditLine | null;
+  eligibility?: { eligible: boolean; score: number; tier: string; offeredLimit: number; interestRatePct: number; reason: string };
+}
+
+export async function getCreditLine(): Promise<CreditLineState | null> {
+  const r = await apiGet<CreditLine & { status?: string; eligibility?: CreditLineState['eligibility'] }>('/v1/credit-line');
+  if (!r) return null;
+  if ('sanctionedLimit' in r && r.sanctionedLimit) return { line: r as CreditLine };
+  return { line: null, eligibility: r.eligibility };
+}
+
+export const issueCreditLine = (limit?: number) => apiPost<CreditLine>('/v1/credit-line/issue', limit ? { limit } : {});
+export const payViaCreditLine = (body: { payeeId?: string; payeeName?: string; amount: number }) =>
+  apiPost<{ line: CreditLine; txn: CreditLineTxn }>('/v1/credit-line/pay', body);
+export const repayCreditLine = (amount: number) =>
+  apiPost<{ line: CreditLine; txn: CreditLineTxn }>('/v1/credit-line/repay', { amount });
+export const listCreditLineTxns = () => apiGet<CreditLineTxn[]>('/v1/credit-line/transactions');
+
+// --- Peer benchmarking / consortium intelligence ---
+export interface Benchmarks {
+  cohort: { size: number; basis: string };
+  margin: { yoursPct: number; peerMedianPct: number; percentile: number; verdict: 'above' | 'below' | 'inline' } | null;
+  laggingProducts: { sku: string; productName: string; yourWeeklyUnits: number; peerMedianWeeklyUnits: number; gapPct: number }[];
+  assortmentGaps: { sku: string; productName: string; category: string; peerCarryingPct: number; peerMedianWeeklyUnits: number }[];
+  insights: string[];
+}
+
+export const fetchBenchmarks = () => apiGet<Benchmarks>('/v1/analytics/benchmarks');
+
+// --- Consumer graph: loyalty + ONDC ---
+export interface LoyaltyMember {
+  customerId: string;
+  customerName?: string;
+  pointsBalance: number;
+  lifetimePoints: number;
+  tier: 'SILVER' | 'GOLD' | 'PLATINUM';
+}
+
+export interface OndcListing {
+  sku: string;
+  productName: string;
+  price: number;
+  currentStock: number;
+}
+
+export interface OndcOrder {
+  id: string;
+  ondcOrderId: string;
+  buyerName: string | null;
+  buyerPincode: string | null;
+  items: { sku: string; name: string; qty: number; price: number }[];
+  total: number;
+  status: string;
+  loyaltyAwarded?: number;
+  createdAt: string;
+}
+
+export interface OndcPublishResult {
+  published: number;
+  storefrontHandle: string;
+  networkListingId: string;
+  listings: OndcListing[];
+}
+
+// --- Books: auto-accounting + CA marketplace + GST notices ---
+export interface ProfitAndLoss {
+  period: { from: string; to: string };
+  revenue: number;
+  unitsSold: number;
+  costOfGoodsSold: number;
+  grossProfit: number;
+  grossMarginPct: number;
+  expenses: { cashExpenses: number; financingCost: number; total: number };
+  netProfit: number;
+}
+
+export interface BalanceSheet {
+  asOf: string;
+  assets: { cash: number; inventory: number; receivables: number; total: number };
+  liabilities: { payables: number; creditLineDrawn: number; loans: number; total: number };
+  equity: number;
+}
+
+export interface CaProfessional {
+  id: string;
+  name: string;
+  firm: string | null;
+  city: string | null;
+  specializations: string[];
+  rating: number;
+  minFee: number;
+  maxFee: number;
+  languages: string[];
+}
+
+export interface GstNotice {
+  id: string;
+  noticeType: string;
+  referenceNo: string | null;
+  period: string | null;
+  amountInvolved: number;
+  dueDate: string | null;
+  status: string;
+  description: string | null;
+  responseDraft: string | null;
+  assignedCaId: string | null;
+}
+
+export const fetchPnl = () => apiGet<ProfitAndLoss>('/v1/accounting/pnl');
+export const fetchBalanceSheet = () => apiGet<BalanceSheet>('/v1/accounting/balance-sheet');
+export const fetchCas = (specialization?: string) =>
+  apiGet<CaProfessional[]>(`/v1/cas${specialization ? `?specialization=${specialization}` : ''}`);
+export const engageCa = (caId: string, serviceType: string) =>
+  apiPost<{ id: string; caName?: string; feeQuoted: number | null; status: string }>(`/v1/cas/${caId}/engage`, { serviceType });
+export const fetchGstNotices = () => apiGet<GstNotice[]>('/v1/gst-notices');
+export const draftNoticeResponse = (id: string) => apiPost<GstNotice>(`/v1/gst-notices/${id}/draft`, {});
+export const assignNotice = (id: string, caId: string) =>
+  apiPost<{ notice: GstNotice; engagementId: string }>(`/v1/gst-notices/${id}/assign`, { caId });
+
+// --- Fraud & trust graph ---
+export interface FraudFlag {
+  type: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH';
+  label: string;
+  detail: string;
+}
+export interface TradeRing {
+  members: { id: string; name: string }[];
+  edges: { from: string; to: string; total: number; invoices: number }[];
+  totalValue: number;
+  circularity: number;
+  suspicion: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+export interface TrustReport {
+  entityId: string;
+  entityName: string;
+  trustScore: number;
+  band: 'TRUSTED' | 'MONITOR' | 'ELEVATED' | 'HIGH_RISK';
+  flags: FraudFlag[];
+  rings?: TradeRing[];
+}
+export interface NetworkAlerts {
+  rings: TradeRing[];
+  riskyEntities: TrustReport[];
+}
+export interface FraudCase {
+  id: string;
+  caseType: string;
+  severity: string;
+  subjectLabel: string;
+  status: string;
+  createdAt: string;
+}
+
+export const fetchFraudScan = () => apiGet<TrustReport>('/v1/fraud/scan');
+export const fetchNetworkAlerts = () => apiGet<NetworkAlerts>('/v1/fraud/alerts');
+export const fetchFraudCases = () => apiGet<FraudCase[]>('/v1/fraud/cases');
+export const raiseFraudCase = (body: { caseType: string; severity?: string; subjectLabel: string }) =>
+  apiPost<FraudCase>('/v1/fraud/cases', body);
+export const resolveFraudCase = (id: string, status: string) =>
+  apiPost<FraudCase>(`/v1/fraud/cases/${id}/status`, { status });
+
+export const fetchLoyalty = () => apiGet<LoyaltyMember[]>('/v1/loyalty');
+export const publishToOndc = () => apiPost<OndcPublishResult>('/v1/ondc/publish', {});
+export const getOndcListings = () => apiGet<OndcListing[]>('/v1/ondc/listings');
+export const simulateOndcOrder = () => apiPost<OndcOrder>('/v1/ondc/orders/simulate', {});
+export const listOndcOrders = () => apiGet<OndcOrder[]>('/v1/ondc/orders');

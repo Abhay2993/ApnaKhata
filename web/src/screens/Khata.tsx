@@ -13,11 +13,36 @@ import {
   isLiveConfigured,
   listCustomers,
   recordVoiceLedger,
+  SyncOperation,
+  syncPush,
   VoiceResult,
 } from '../api';
 import { Header, inr } from '../components';
 import { useI18n } from '../i18n';
 import { parseLedgerCommand } from '../voiceParser';
+
+/**
+ * Offline outbox: entries captured while the API is unreachable are queued in
+ * localStorage (each with a client-generated opId) and flushed through
+ * POST /v1/sync/push when connectivity returns. The server dedupes on opId, so
+ * an interrupted flush that retries is harmless.
+ */
+const OUTBOX_KEY = 'apnakhata.outbox';
+
+const readOutbox = (): SyncOperation[] => {
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_KEY) ?? '[]') as SyncOperation[];
+  } catch {
+    return [];
+  }
+};
+const writeOutbox = (ops: SyncOperation[]) => {
+  try {
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(ops));
+  } catch {
+    /* storage full/unavailable — entries stay in memory this session */
+  }
+};
 
 const DEMO_CUSTOMERS: CustomerBalance[] = [
   { id: 'd1', name: 'Ramesh Kumar', phone: '+919812345678', balance: 450, lastActivity: new Date().toISOString() },
@@ -70,6 +95,7 @@ export default function Khata() {
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [pending, setPending] = useState(() => readOutbox().length);
   const recRef = useRef<SpeechRec | null>(null);
 
   const voiceSupported = typeof window !== 'undefined' && getRecognition('en-IN') !== null;
@@ -83,12 +109,40 @@ export default function Khata() {
       }
     });
   };
-  useEffect(refresh, []);
 
-  const applyDemo = (transcript: string) => {
+  /** Flush the offline outbox through the sync endpoint (deduped server-side). */
+  const flushOutbox = async () => {
+    const ops = readOutbox();
+    if (ops.length === 0 || !isLiveConfigured()) return;
+    const res = await syncPush('web', ops);
+    if (!res) return; // still offline — keep the queue
+    // Every op that got a verdict leaves the queue — REJECTED ones would never
+    // succeed on retry, and APPLIED/DUPLICATE are done.
+    const done = new Set(res.results.map((r) => r.opId));
+    const remaining = ops.filter((o) => !done.has(o.opId));
+    writeOutbox(remaining);
+    setPending(remaining.length);
+    if (ops.length > remaining.length) {
+      setFeedback({ ok: true, text: `${t('khata.synced')} (${ops.length - remaining.length})` });
+      refresh();
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    void flushOutbox();
+    const onOnline = () => void flushOutbox();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Optimistically apply a parsed command to the local list. `silent` skips the
+  // success feedback so the offline path can show its own "saved offline" note.
+  const applyDemo = (transcript: string, silent = false) => {
     const cmd = parseLedgerCommand(transcript);
     if (cmd.intent === 'UNKNOWN' || !cmd.party || !cmd.amount) {
-      setFeedback({ ok: false, text: `${t('khata.notPosted')} · “${transcript}”` });
+      if (!silent) setFeedback({ ok: false, text: `${t('khata.notPosted')} · “${transcript}”` });
       return;
     }
     const delta = cmd.intent === 'RECORD_PAYMENT' ? -cmd.amount : cmd.amount;
@@ -103,9 +157,11 @@ export default function Khata() {
         newBal = delta;
         next = [{ id: `d${Date.now()}`, name: cmd.party as string, phone: null, balance: newBal, lastActivity: new Date().toISOString() }, ...prev];
       }
-      const label = cmd.intent === 'RECORD_PAYMENT' ? t('khata.payment') : t('khata.credit');
-      const who = existing ? existing.name : (cmd.party as string);
-      setFeedback({ ok: true, text: `${t('khata.posted')} ✓ ${who} · ${label} ${inr(cmd.amount as number)} · ${t('khata.newBalance')} ${inr(newBal)}` });
+      if (!silent) {
+        const label = cmd.intent === 'RECORD_PAYMENT' ? t('khata.payment') : t('khata.credit');
+        const who = existing ? existing.name : (cmd.party as string);
+        setFeedback({ ok: true, text: `${t('khata.posted')} ✓ ${who} · ${label} ${inr(cmd.amount as number)} · ${t('khata.newBalance')} ${inr(newBal)}` });
+      }
       return next.sort((a, b) => (b.lastActivity ?? '').localeCompare(a.lastActivity ?? ''));
     });
   };
@@ -117,7 +173,29 @@ export default function Khata() {
     if (mode === 'live') {
       const res: VoiceResult | null = await recordVoiceLedger(clean);
       if (!res) {
-        setFeedback({ ok: false, text: 'Could not reach the server — try again.' });
+        // Offline: parse locally, queue the op, and apply optimistically.
+        const cmd = parseLedgerCommand(clean);
+        if (cmd.intent === 'UNKNOWN' || !cmd.party || !cmd.amount) {
+          setFeedback({ ok: false, text: `${t('khata.notPosted')} · “${clean}”` });
+          return;
+        }
+        const op: SyncOperation = {
+          opId: crypto.randomUUID(),
+          type: 'CUSTOMER_LEDGER_ENTRY',
+          clientTs: new Date().toISOString(),
+          payload: {
+            customerName: cmd.party,
+            entryType: cmd.intent === 'RECORD_PAYMENT' ? 'PAYMENT' : 'CREDIT',
+            amount: cmd.amount,
+            source: 'VOICE',
+            transcript: clean,
+          },
+        };
+        const ops = [...readOutbox(), op];
+        writeOutbox(ops);
+        setPending(ops.length);
+        applyDemo(clean, true); // optimistic local apply, no feedback (offline note wins)
+        setFeedback({ ok: true, text: `${t('khata.offlineSaved')} · “${clean}”` });
         return;
       }
       if (res.posted && res.result) {
@@ -172,7 +250,10 @@ export default function Khata() {
       <Header title={t('khata.title')} badge={mode === 'live' ? 'LIVE' : 'DEMO'} />
 
       <section className="card voice-card">
-        <span className="card-label">{t('khata.title')}</span>
+        <div className="section-head" style={{ margin: 0 }}>
+          <span className="card-label">{t('khata.title')}</span>
+          {pending > 0 && <span className="pill pill-gold">⇄ {pending} {t('khata.pendingSync')}</span>}
+        </div>
         <p className="voice-subtitle">{t('khata.subtitle')}</p>
 
         <button type="button" className={`voice-btn ${listening ? 'listening' : ''}`} onClick={toggleListen}>
