@@ -1,9 +1,8 @@
 /* ApnaKhata web preview — "Azure & Saffron" premium light theme.
-   A light-blue canvas with white glass cards, a saffron primary accent and an
-   azure secondary, blended in the brand gradient. */
+   Lighter blue canvas, muted saffron accent, sharper cards. */
 :root {
   /* surfaces */
-  --canvas: #eef4fd;
+  --canvas: #f2f7fe;
   --card: #ffffff;
   --charcoal: #ffffff;          /* legacy name → card surface */
   --obsidian: #0e2038;          /* legacy name → deep ink (text on accents) */
@@ -11,21 +10,25 @@
   --alabaster: #16294a;         /* legacy name → primary text (now dark) */
   --ink: #0e2038;
   --slate: #5f7290;
-  /* accents */
-  --gold: #f2a02c;              /* legacy name → saffron fill */
-  --gold-bright: #d97a0b;       /* legacy name → saffron ink (reads on white) */
-  --saffron: #f4a52c;
+  /* accents — muted saffron + azure */
+  --gold: #e0a64a;              /* legacy name → muted saffron fill */
+  --gold-bright: #c67a1e;       /* legacy name → muted saffron ink (reads on white) */
+  --saffron: #e0a64a;
   --azure: #2f83e0;
   --sky: #5aa9f0;
   --green: #14a06e;
   --danger: #e0524f;
   /* blends + effects */
-  --grad-brand: linear-gradient(120deg, #2f83e0 0%, #f4a52c 100%);
-  --grad-saffron: linear-gradient(135deg, #f9bd57 0%, #ef8f1e 100%);
+  --grad-brand: linear-gradient(120deg, #2f83e0 0%, #e0a64a 100%);
+  --grad-saffron: linear-gradient(135deg, #d69a3c 0%, #bf7418 100%);
   --grad-azure: linear-gradient(135deg, #6fb4f6 0%, #2f83e0 100%);
-  --card-border: rgba(47, 131, 224, 0.16);
-  --card-shadow: 0 6px 22px rgba(23, 52, 102, 0.08);
-  --card-shadow-lg: 0 14px 40px rgba(23, 52, 102, 0.12);
+  --card-border: rgba(47, 131, 224, 0.14);
+  --card-shadow: 0 5px 18px rgba(23, 52, 102, 0.07);
+  --card-shadow-lg: 0 12px 34px rgba(23, 52, 102, 0.11);
+  /* radii — sharper */
+  --r-card: 10px;
+  --r-btn: 8px;
+  --r-input: 8px;
   --sans: 'Inter', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
 }
@@ -38,9 +41,9 @@
 
 body {
   background:
-    radial-gradient(1100px 520px at 12% -5%, rgba(90, 169, 240, 0.35), transparent 60%),
-    radial-gradient(900px 520px at 92% 105%, rgba(244, 165, 44, 0.26), transparent 55%),
-    linear-gradient(160deg, #e9f2fd 0%, #dce9fa 55%, #eef4fd 100%);
+    radial-gradient(1000px 480px at 12% -5%, rgba(90, 169, 240, 0.2), transparent 60%),
+    radial-gradient(820px 480px at 92% 105%, rgba(224, 166, 74, 0.14), transparent 55%),
+    linear-gradient(160deg, #f2f7fe 0%, #e9f2fd 55%, #f4f9ff 100%);
   background-attachment: fixed;
   color: var(--alabaster);
   font-family: var(--sans);
@@ -69,15 +72,15 @@ body {
   height: 800px;
   max-height: 92vh;
   background:
-    linear-gradient(180deg, #ffffff 0%, #eaf1fc 100%) padding-box,
+    linear-gradient(180deg, #ffffff 0%, #eef4fd 100%) padding-box,
     linear-gradient(140deg, var(--sky) 0%, var(--saffron) 100%) border-box;
-  border: 2.5px solid transparent;
-  border-radius: 44px;
+  border: 2px solid transparent;
+  border-radius: 40px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   text-align: left;
-  box-shadow: 0 30px 70px rgba(28, 62, 120, 0.26), 0 2px 8px rgba(28, 62, 120, 0.08);
+  box-shadow: 0 28px 64px rgba(28, 62, 120, 0.22), 0 2px 8px rgba(28, 62, 120, 0.07);
 }
 .screen {
   flex: 1;
@@ -126,7 +129,7 @@ body {
   color: var(--green);
 }
 .mode-badge.demo {
-  background: rgba(244, 165, 44, 0.16);
+  background: rgba(224, 166, 74, 0.18);
   color: var(--gold-bright);
 }
 .mode-badge.loading {
@@ -138,7 +141,7 @@ body {
 .card {
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 20px 22px;
   margin-bottom: 14px;
   box-shadow: var(--card-shadow);
@@ -158,8 +161,8 @@ body {
   align-items: center;
 }
 .tier-chip {
-  border: 1px solid rgba(244, 165, 44, 0.5);
-  background: rgba(244, 165, 44, 0.1);
+  border: 1px solid rgba(224, 166, 74, 0.5);
+  background: rgba(224, 166, 74, 0.1);
   border-radius: 999px;
   color: var(--gold-bright);
   font-size: 10px;
@@ -214,7 +217,7 @@ body {
 .btn-outline {
   background: none;
   border: 1px solid var(--azure);
-  border-radius: 10px;
+  border-radius: var(--r-btn);
   color: var(--azure);
   cursor: pointer;
   font-size: 10px;
@@ -280,7 +283,7 @@ body {
 .alert-card {
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   padding: 14px 16px;
   margin-bottom: 10px;
   box-shadow: var(--card-shadow);
@@ -325,7 +328,7 @@ body {
 .btn-order {
   background: var(--grad-saffron);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--r-btn);
   color: #fff;
   cursor: pointer;
   font-size: 11px;
@@ -333,7 +336,7 @@ body {
   letter-spacing: 1px;
   padding: 9px 16px;
   min-width: 104px;
-  box-shadow: 0 4px 12px rgba(239, 143, 30, 0.28);
+  box-shadow: 0 3px 10px rgba(191, 116, 24, 0.24);
   transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 .btn-order:hover {
@@ -343,7 +346,7 @@ body {
   cursor: default;
 }
 .btn-order.pending {
-  background: rgba(244, 165, 44, 0.45);
+  background: rgba(224, 166, 74, 0.45);
   box-shadow: none;
 }
 .btn-order.ordered {
@@ -358,7 +361,7 @@ body {
   display: flex;
   background: rgba(47, 131, 224, 0.07);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: var(--r-btn);
   padding: 4px;
   margin-bottom: 14px;
 }
@@ -366,7 +369,7 @@ body {
   flex: 1;
   background: none;
   border: none;
-  border-radius: 9px;
+  border-radius: 6px;
   color: var(--slate);
   cursor: pointer;
   font-size: 11px;
@@ -381,7 +384,7 @@ body {
 .viewfinder {
   background: linear-gradient(160deg, #17304f, #0e2038);
   border: 1px solid rgba(47, 131, 224, 0.3);
-  border-radius: 16px;
+  border-radius: var(--r-card);
   height: 210px;
   position: relative;
   display: flex;
@@ -437,7 +440,7 @@ body {
 .cart-row {
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
+  border-radius: var(--r-btn);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -472,19 +475,19 @@ body {
 .btn-charge {
   background: var(--grad-saffron);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--r-btn);
   color: #fff;
   cursor: pointer;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;
   padding: 12px 28px;
-  box-shadow: 0 6px 16px rgba(239, 143, 30, 0.3);
+  box-shadow: 0 4px 12px rgba(191, 116, 24, 0.26);
   transition: transform 0.1s ease;
 }
 .btn-charge:hover { transform: translateY(-1px); }
 .btn-charge:disabled {
-  background: rgba(244, 165, 44, 0.28);
+  background: rgba(224, 166, 74, 0.28);
   box-shadow: none;
   cursor: default;
 }
@@ -500,7 +503,7 @@ body {
 .form-grid select {
   background: rgba(47, 131, 224, 0.05);
   border: 1px solid rgba(47, 131, 224, 0.22);
-  border-radius: 10px;
+  border-radius: var(--r-input);
   color: var(--ink);
   font-size: 13px;
   padding: 9px 12px;
@@ -525,7 +528,7 @@ body {
   flex: 1;
   background: rgba(47, 131, 224, 0.05);
   border: 1px solid rgba(47, 131, 224, 0.22);
-  border-radius: 10px;
+  border-radius: var(--r-input);
   color: var(--ink);
   font-size: 13px;
   padding: 9px 12px;
@@ -536,9 +539,9 @@ body {
 .mkt-search input:focus { outline: none; border-color: var(--azure); }
 .mkt-qty {
   width: 64px;
-  background: rgba(244, 165, 44, 0.06);
-  border: 1px solid rgba(244, 165, 44, 0.45);
-  border-radius: 10px;
+  background: rgba(224, 166, 74, 0.06);
+  border: 1px solid rgba(224, 166, 74, 0.45);
+  border-radius: var(--r-input);
   color: var(--ink);
   font-size: 14px;
   text-align: center;
@@ -554,7 +557,7 @@ body {
   font-weight: 700;
   letter-spacing: 1px;
 }
-.pill-gold { background: rgba(244, 165, 44, 0.16); color: var(--gold-bright); }
+.pill-gold { background: rgba(224, 166, 74, 0.18); color: var(--gold-bright); }
 .pill-green { background: rgba(20, 160, 110, 0.15); color: var(--green); }
 .pill-red { background: rgba(224, 82, 79, 0.14); color: var(--danger); }
 .pill-slate { background: rgba(47, 131, 224, 0.1); color: var(--azure); }
@@ -590,11 +593,11 @@ body {
 }
 
 .fee-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.fee-chip { border: 1px solid rgba(244, 165, 44, 0.35); background: rgba(244, 165, 44, 0.05); border-radius: 10px; padding: 6px 10px; font-size: 11px; color: var(--slate); }
+.fee-chip { border: 1px solid rgba(224, 166, 74, 0.35); background: rgba(224, 166, 74, 0.05); border-radius: var(--r-btn); padding: 6px 10px; font-size: 11px; color: var(--slate); }
 .fee-chip b { color: var(--gold-bright); }
 
 .itc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
-.itc-cell { background: rgba(47, 131, 224, 0.06); border-radius: 10px; padding: 10px 4px; text-align: center; }
+.itc-cell { background: rgba(47, 131, 224, 0.06); border-radius: var(--r-btn); padding: 10px 4px; text-align: center; }
 .itc-cell b { display: block; font-size: 18px; color: var(--ink); }
 .itc-cell span { font-size: 9px; color: var(--slate); letter-spacing: 0.5px; }
 
@@ -603,7 +606,7 @@ body {
 .tile {
   background: var(--card);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
+  border-radius: var(--r-card);
   padding: 18px 14px;
   text-align: left;
   cursor: pointer;
@@ -613,7 +616,7 @@ body {
   box-shadow: var(--card-shadow);
   transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.tile:hover { transform: translateY(-2px); border-color: rgba(244, 165, 44, 0.5); box-shadow: var(--card-shadow-lg); }
+.tile:hover { transform: translateY(-2px); border-color: rgba(224, 166, 74, 0.5); box-shadow: var(--card-shadow-lg); }
 .tile-icon { font-size: 22px; }
 .tile-title { color: var(--ink); font-size: 14px; font-weight: 700; }
 .tile-sub { color: var(--slate); font-size: 11px; }
@@ -699,13 +702,13 @@ body {
   border-color: transparent;
   color: #fff;
   font-weight: 700;
-  box-shadow: 0 3px 10px rgba(239, 143, 30, 0.28);
+  box-shadow: 0 3px 10px rgba(191, 116, 24, 0.24);
 }
 
 /* Khata — voice entry card */
 .voice-card {
-  background: linear-gradient(155deg, rgba(244, 165, 44, 0.09), rgba(47, 131, 224, 0.07));
-  border: 1px solid rgba(244, 165, 44, 0.3);
+  background: linear-gradient(155deg, rgba(224, 166, 74, 0.1), rgba(47, 131, 224, 0.07));
+  border: 1px solid rgba(224, 166, 74, 0.3);
 }
 .voice-subtitle {
   color: var(--slate);
@@ -718,7 +721,7 @@ body {
   background: var(--grad-saffron);
   color: #fff;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--r-btn);
   padding: 15px;
   font-size: 15px;
   font-weight: 700;
@@ -728,7 +731,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 8px 20px rgba(239, 143, 30, 0.3);
+  box-shadow: 0 6px 16px rgba(191, 116, 24, 0.26);
   transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 .voice-btn:hover { transform: translateY(-1px); }
@@ -752,7 +755,7 @@ body {
   min-width: 0;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(47, 131, 224, 0.25);
-  border-radius: 11px;
+  border-radius: var(--r-input);
   padding: 11px 12px;
   color: var(--ink);
   font-size: 13px;
@@ -767,7 +770,7 @@ body {
   background: rgba(47, 131, 224, 0.06);
   border: 1px solid var(--azure);
   color: var(--azure);
-  border-radius: 11px;
+  border-radius: var(--r-input);
   padding: 0 16px;
   font-size: 12px;
   font-weight: 700;
@@ -779,7 +782,7 @@ body {
 .voice-feedback {
   margin-top: 12px;
   padding: 11px 13px;
-  border-radius: 11px;
+  border-radius: var(--r-btn);
   font-size: 12.5px;
   line-height: 1.4;
 }
@@ -807,7 +810,7 @@ body {
   padding: 12px;
   background: rgba(47, 131, 224, 0.05);
   border: 1px solid rgba(47, 131, 224, 0.2);
-  border-radius: 11px;
+  border-radius: var(--r-btn);
   color: #3f5675;
   font-size: 10.5px;
   line-height: 1.5;
@@ -819,12 +822,12 @@ body {
 
 /* Credit line — virtual RuPay card (kept dark for card realism) */
 .rupay-card {
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 20px;
   margin-bottom: 16px;
   background: linear-gradient(135deg, #1b3a63 0%, #0e2038 55%, #6b4a12 130%);
-  border: 1px solid rgba(244, 165, 44, 0.4);
-  box-shadow: 0 14px 34px rgba(14, 32, 56, 0.35);
+  border: 1px solid rgba(224, 166, 74, 0.4);
+  box-shadow: 0 12px 30px rgba(14, 32, 56, 0.32);
   position: relative;
   overflow: hidden;
 }
@@ -835,7 +838,7 @@ body {
   right: -10%;
   width: 60%;
   height: 180%;
-  background: radial-gradient(circle, rgba(244, 165, 44, 0.22), transparent 70%);
+  background: radial-gradient(circle, rgba(224, 166, 74, 0.2), transparent 70%);
 }
 .rupay-top {
   display: flex;
@@ -864,8 +867,8 @@ body {
 
 /* Dashboard — festival planner */
 .festival-card {
-  background: linear-gradient(155deg, rgba(244, 165, 44, 0.12), rgba(47, 131, 224, 0.06));
-  border: 1px solid rgba(244, 165, 44, 0.3);
+  background: linear-gradient(155deg, rgba(224, 166, 74, 0.13), rgba(47, 131, 224, 0.06));
+  border: 1px solid rgba(224, 166, 74, 0.3);
 }
 
 /* Khata — customer rows */

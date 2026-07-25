@@ -547,11 +547,11 @@ file, `web/src/styles.css`) but carry the new palette. Values below are the curr
 
 | Token (CSS var) | Value | Usage |
 | --- | --- | --- |
-| `--canvas` | `#EEF4FD` | App canvas (light blue) |
+| `--canvas` | `#F2F7FE` | App canvas (light blue) |
 | `--charcoal` (card) | `#FFFFFF` | White glass card surfaces |
 | `--obsidian` / `--ink` | `#0E2038` | Deep ink; text on accent fills |
-| `--gold` (saffron) | `#F2A02C` | Primary accent fills, score arc |
-| `--gold-bright` (saffron ink) | `#D97A0B` | Emphasis numerals (reads on white) |
+| `--gold` (saffron) | `#E0A64A` | Primary accent fills, score arc (muted saffron) |
+| `--gold-bright` (saffron ink) | `#C67A1E` | Emphasis numerals (reads on white) |
 | `--azure` / `--sky` | `#2F83E0` / `#5AA9F0` | Secondary accent, outlines, active tab |
 | `--slate` | `#5F7290` | Secondary text |
 | `--alabaster` | `#16294A` | Primary typography (deep navy) |
@@ -564,8 +564,9 @@ file, `web/src/styles.css`) but carry the new palette. Values below are the curr
 
 - **Type:** Inter (UI), Playfair Display (display headings, large balance figures, the
   gradient wordmark). Balance figures render at 34–44 pt with tabular numerals.
-- **Cards:** white surfaces, 1 px azure-tinted borders, 16–18 px radius, soft blue elevation
-  shadows; the hero cards (voice, festival, best-offer) carry a saffron→azure gradient wash.
+- **Cards:** white surfaces, 1 px azure-tinted borders, a sharp 10 px radius (`--r-card`),
+  soft blue elevation shadows; the hero cards (voice, festival, best-offer) carry a
+  saffron→azure gradient wash. Radii are variables (`--r-card`, `--r-btn`) for one-line tuning.
 - **Buttons:** primary CTAs use the saffron gradient with a soft glow and a 1 px hover lift;
   secondary actions are azure outline.
 - **The RuPay virtual card** deliberately stays a dark navy→saffron gradient (card realism)
